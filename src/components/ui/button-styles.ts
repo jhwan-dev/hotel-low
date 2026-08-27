@@ -1,0 +1,35 @@
+import { cn } from "@/lib/cn";
+
+export type ButtonVariant = "primary" | "secondary" | "outline" | "ghost";
+export type ButtonSize = "sm" | "md" | "lg";
+
+const variantClasses: Record<ButtonVariant, string> = {
+  primary:
+    "bg-primary text-white hover:bg-primary-hover active:bg-primary-active disabled:bg-primary-light disabled:text-primary-light-2",
+  secondary:
+    "bg-primary-light text-primary hover:bg-primary-light-2 disabled:opacity-50",
+  outline:
+    "border border-border bg-surface text-ink hover:bg-surface-muted disabled:opacity-50",
+  ghost: "bg-transparent text-ink hover:bg-surface-muted disabled:opacity-50",
+};
+
+const sizeClasses: Record<ButtonSize, string> = {
+  sm: "h-9 px-4 text-small",
+  md: "h-12 px-5 text-body",
+  lg: "h-14 px-6 text-h3",
+};
+
+export function buttonClasses(
+  variant: ButtonVariant = "primary",
+  size: ButtonSize = "md",
+  fullWidth?: boolean,
+  className?: string,
+): string {
+  return cn(
+    "inline-flex items-center justify-center gap-2 rounded-control font-semibold transition-colors disabled:cursor-not-allowed",
+    variantClasses[variant],
+    sizeClasses[size],
+    fullWidth && "w-full",
+    className,
+  );
+}

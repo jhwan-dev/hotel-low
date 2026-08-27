@@ -1,0 +1,109 @@
+@import "tailwindcss";
+
+:root {
+  /* Brand — from Hoteliq Figma reference */
+  --color-primary: #4c4ddc;
+  --color-primary-hover: #3f40c2;
+  --color-primary-active: #3436a8;
+  --color-primary-light: #e4e4fa;
+  --color-primary-light-2: #c8c8f4;
+
+  /* Neutral */
+  --color-ink: #101010;
+  --color-ink-muted: #5b5d6b;
+  --color-border: #e1e1e1;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f7f7fb;
+
+  /* Semantic — price tracking */
+  --color-price-down: #16a34a;
+  --color-price-down-bg: #e7f8ed;
+  --color-price-up: #e0342f;
+  --color-price-up-bg: #fdeceb;
+  --color-price-neutral: #6b7280;
+  --color-price-neutral-bg: #f0f1f3;
+
+  --radius-card: 1.25rem;
+  --radius-control: 0.875rem;
+}
+
+@theme inline {
+  --color-background: var(--color-surface-muted);
+  --color-foreground: var(--color-ink);
+
+  --color-primary: var(--color-primary);
+  --color-primary-hover: var(--color-primary-hover);
+  --color-primary-active: var(--color-primary-active);
+  --color-primary-light: var(--color-primary-light);
+  --color-primary-light-2: var(--color-primary-light-2);
+
+  --color-ink: var(--color-ink);
+  --color-ink-muted: var(--color-ink-muted);
+  --color-border: var(--color-border);
+  --color-surface: var(--color-surface);
+  --color-surface-muted: var(--color-surface-muted);
+
+  --color-price-down: var(--color-price-down);
+  --color-price-down-bg: var(--color-price-down-bg);
+  --color-price-up: var(--color-price-up);
+  --color-price-up-bg: var(--color-price-up-bg);
+  --color-price-neutral: var(--color-price-neutral);
+  --color-price-neutral-bg: var(--color-price-neutral-bg);
+
+  --radius-card: var(--radius-card);
+  --radius-control: var(--radius-control);
+
+  --font-sans: var(--font-inter);
+
+  /* Typography scale — mobile-first */
+  --text-display: 2rem;
+  --text-display--line-height: 2.375rem;
+  --text-display--font-weight: 700;
+
+  --text-h1: 1.5rem;
+  --text-h1--line-height: 2rem;
+  --text-h1--font-weight: 700;
+
+  --text-h2: 1.25rem;
+  --text-h2--line-height: 1.75rem;
+  --text-h2--font-weight: 600;
+
+  --text-h3: 1.0625rem;
+  --text-h3--line-height: 1.5rem;
+  --text-h3--font-weight: 600;
+
+  --text-body: 0.9375rem;
+  --text-body--line-height: 1.4375rem;
+  --text-body--font-weight: 400;
+
+  --text-small: 0.8125rem;
+  --text-small--line-height: 1.125rem;
+  --text-small--font-weight: 400;
+
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1rem;
+  --text-caption--font-weight: 500;
+
+  /* Price numerals get their own scale — always the strongest visual weight on screen */
+  --text-price-lg: 1.75rem;
+  --text-price-lg--line-height: 2.125rem;
+  --text-price-lg--font-weight: 700;
+
+  --text-price-md: 1.25rem;
+  --text-price-md--line-height: 1.625rem;
+  --text-price-md--font-weight: 700;
+
+  --text-price-sm: 0.9375rem;
+  --text-price-sm--line-height: 1.25rem;
+  --text-price-sm--font-weight: 600;
+}
+
+body {
+  background: var(--color-surface-muted);
+  color: var(--color-ink);
+}
+
+/* Price figures should never wobble as digits change */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
