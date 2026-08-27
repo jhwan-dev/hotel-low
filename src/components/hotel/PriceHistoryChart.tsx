@@ -110,8 +110,8 @@ export function PriceHistoryChart({ points, currency, className }: PriceHistoryC
       </svg>
 
       <div className="flex items-center justify-between text-caption text-ink-muted">
-        <span>{visible[0] && shortDate(visible[0].date)}</span>
-        <span>{last && shortDate(last.point.date)}</span>
+        <span>{visible[0] && shortDate(visible[0].checkedAt)}</span>
+        <span>{last && shortDate(last.point.checkedAt)}</span>
       </div>
 
       <div className="grid grid-cols-4 gap-2 text-center">

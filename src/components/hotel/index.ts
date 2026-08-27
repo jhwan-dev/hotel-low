@@ -2,3 +2,8 @@ export * from "./HotelCard";
 export * from "./HotelResultsGrid";
 export * from "./TrackHotelButton";
 export * from "./PriceHistoryChart";
+export * from "./PriceTrackingSheet";
+export * from "./PriceTrackingCta";
+export * from "./HotelDealCard";
+export * from "./PriceDropCard";
+export * from "./LowAvailabilityCard";

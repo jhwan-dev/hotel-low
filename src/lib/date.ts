@@ -28,3 +28,49 @@ export function formatDateLabel(iso: string): string {
     timeZone: "UTC",
   }).format(date);
 }
+
+/** Short "M/D" label for compact UI (calendar triggers, chart axes). */
+export function formatShortDate(iso: string): string {
+  const [, month, day] = iso.split("-");
+  return `${Number(month)}/${Number(day)}`;
+}
+
+/** First day of the month `monthsFromToday` months after today, as YYYY-MM-01. */
+export function startOfMonthISO(monthsFromToday: number): string {
+  const now = new Date();
+  const first = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + monthsFromToday, 1));
+  return toISODate(first);
+}
+
+export function addMonthsISO(iso: string, months: number): string {
+  const date = new Date(`${iso}T00:00:00Z`);
+  const shifted = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + months, 1));
+  return toISODate(shifted);
+}
+
+export function formatMonthLabel(iso: string): string {
+  const date = new Date(`${iso}T00:00:00Z`);
+  return new Intl.DateTimeFormat("ko-KR", {
+    year: "numeric",
+    month: "long",
+    timeZone: "UTC",
+  }).format(date);
+}
+
+/**
+ * A 7-wide grid of the given month for calendar UIs: `null` for the padding
+ * cells before day 1 / after the last day, an ISO date string otherwise.
+ * `monthStartIso` must be the first of the month (see startOfMonthISO).
+ */
+export function getMonthGrid(monthStartIso: string): (string | null)[] {
+  const [year, month] = monthStartIso.split("-").map(Number);
+  const startWeekday = new Date(Date.UTC(year, month - 1, 1)).getUTCDay();
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+
+  const cells: (string | null)[] = Array.from({ length: startWeekday }, () => null);
+  for (let day = 1; day <= daysInMonth; day++) {
+    cells.push(toISODate(new Date(Date.UTC(year, month - 1, day))));
+  }
+  while (cells.length % 7 !== 0) cells.push(null);
+  return cells;
+}

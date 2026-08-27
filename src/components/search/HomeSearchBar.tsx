@@ -4,37 +4,28 @@ import { useState } from "react";
 import { SearchIcon } from "@/components/icons";
 import { Button, Input } from "@/components/ui";
 import { supportedDestinations } from "@/lib/hotels/destinations";
-import type { StayQuery } from "@/lib/search/stay-query";
+import { defaultStayQuery, type StayQuery } from "@/lib/search/stay-query";
 import { DateRangeGuestPicker } from "./DateRangeGuestPicker";
 
-export interface HotelSearchFormProps {
-  defaultDestination?: string;
-  defaultStay: StayQuery;
-}
-
-export function HotelSearchForm({
-  defaultDestination = "",
-  defaultStay,
-}: HotelSearchFormProps) {
-  const [stay, setStay] = useState<StayQuery>(defaultStay);
+/** Home screen's entry point: destination on its own line, dates + guest count below. */
+export function HomeSearchBar() {
+  const [stay, setStay] = useState<StayQuery>(defaultStayQuery);
 
   return (
     <form
       action="/search"
       method="get"
-      className="flex flex-col gap-4 rounded-card border border-border bg-surface p-4"
+      className="flex flex-col gap-3 rounded-card border border-border bg-surface p-4"
     >
       <div>
         <Input
-          label="목적지"
           name="destination"
-          list="hotelow-destinations"
-          defaultValue={defaultDestination}
-          placeholder="도시 또는 호텔명"
+          list="hotelow-home-destinations"
+          placeholder="지역, 호텔명으로 검색"
           leftIcon={<SearchIcon width={18} height={18} />}
           autoComplete="off"
         />
-        <datalist id="hotelow-destinations">
+        <datalist id="hotelow-home-destinations">
           {supportedDestinations.map((city) => (
             <option key={city} value={city} />
           ))}
@@ -53,7 +44,7 @@ export function HotelSearchForm({
       ))}
 
       <Button type="submit" size="lg" fullWidth>
-        검색
+        호텔 찾기
       </Button>
     </form>
   );

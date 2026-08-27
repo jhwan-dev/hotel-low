@@ -3,6 +3,8 @@ import type { Hotel } from "@/types/hotel";
 export interface MockHotel extends Hotel {
   /** Base nightly price in KRW, before the date-based mock fluctuation. */
   basePrice: number;
+  /** Stand-in Agoda hotel/property id — this is what a real Search/Content API call would key on. */
+  agodaHotelId: number;
 }
 
 function images(seed: string, count: number): string[] {
@@ -25,6 +27,7 @@ export const mockHotels: MockHotel[] = [
     description:
       "북촌 한옥마을 한가운데 위치한 전통 한옥 숙소로, 고즈넉한 분위기와 현대적인 편의시설을 함께 제공합니다.",
     basePrice: 182000,
+    agodaHotelId: 1400001,
   },
   {
     id: "seoul-myeongdong-tower",
@@ -37,6 +40,7 @@ export const mockHotels: MockHotel[] = [
     amenities: ["무료 와이파이", "피트니스 센터", "루프탑 바"],
     description: "명동 쇼핑가 중심부, 남산타워 전망을 갖춘 비즈니스 호텔입니다.",
     basePrice: 145000,
+    agodaHotelId: 1400002,
   },
   {
     id: "seoul-gangnam-suite",
@@ -49,6 +53,7 @@ export const mockHotels: MockHotel[] = [
     amenities: ["무료 와이파이", "주방시설", "세탁시설"],
     description: "장기 출장객을 위한 풀옵션 레지던스형 객실을 제공하는 강남 중심 호텔입니다.",
     basePrice: 210000,
+    agodaHotelId: 1400003,
   },
   {
     id: "seoul-hongdae-pod",
@@ -61,6 +66,7 @@ export const mockHotels: MockHotel[] = [
     amenities: ["무료 와이파이", "24시간 프런트"],
     description: "홍대 클럽거리 도보 5분, 합리적인 가격의 캡슐형 디자인 호텔입니다.",
     basePrice: 88000,
+    agodaHotelId: 1400004,
   },
   {
     id: "tokyo-shinjuku-view",
@@ -73,6 +79,7 @@ export const mockHotels: MockHotel[] = [
     amenities: ["무료 와이파이", "온천", "조식 포함"],
     description: "신주쿠 마천루 전망과 대욕장을 갖춘 도심형 호텔입니다.",
     basePrice: 168000,
+    agodaHotelId: 1400005,
   },
   {
     id: "tokyo-asakusa-inn",
@@ -85,6 +92,7 @@ export const mockHotels: MockHotel[] = [
     amenities: ["다다미 객실", "유카타 제공", "조식 포함"],
     description: "센소지 도보 3분, 전통 다다미 객실에서 일본식 환대를 경험할 수 있습니다.",
     basePrice: 132000,
+    agodaHotelId: 1400006,
   },
   {
     id: "tokyo-shibuya-cross",
@@ -97,6 +105,7 @@ export const mockHotels: MockHotel[] = [
     amenities: ["무료 와이파이", "피트니스 센터"],
     description: "시부야 스크램블 교차로 바로 앞에 위치한 모던 시티 호텔입니다.",
     basePrice: 155000,
+    agodaHotelId: 1400007,
   },
   {
     id: "tokyo-ginza-grand",
@@ -109,6 +118,7 @@ export const mockHotels: MockHotel[] = [
     amenities: ["무료 와이파이", "스파", "미쉐린 레스토랑"],
     description: "긴자 명품거리 한복판의 럭셔리 호텔로 최상급 서비스를 제공합니다.",
     basePrice: 298000,
+    agodaHotelId: 1400008,
   },
   {
     id: "osaka-dotonbori-central",
@@ -121,6 +131,7 @@ export const mockHotels: MockHotel[] = [
     amenities: ["무료 와이파이", "24시간 프런트", "코인 세탁실"],
     description: "도톤보리 강변 번화가 한가운데, 관광과 쇼핑에 최적화된 위치입니다.",
     basePrice: 121000,
+    agodaHotelId: 1400009,
   },
   {
     id: "osaka-namba-park",
@@ -133,6 +144,7 @@ export const mockHotels: MockHotel[] = [
     amenities: ["무료 와이파이", "조식 포함"],
     description: "난바역 도보 4분, 오사카 조 관광에도 편리한 가성비 호텔입니다.",
     basePrice: 96000,
+    agodaHotelId: 1400010,
   },
   {
     id: "osaka-umeda-sky",
@@ -145,6 +157,7 @@ export const mockHotels: MockHotel[] = [
     amenities: ["무료 와이파이", "스카이라운지", "피트니스 센터"],
     description: "오사카역 인근 초고층 호텔로 도시 전경을 한눈에 담을 수 있습니다.",
     basePrice: 175000,
+    agodaHotelId: 1400011,
   },
   {
     id: "osaka-shinsekai-retro",
@@ -157,6 +170,7 @@ export const mockHotels: MockHotel[] = [
     amenities: ["무료 와이파이", "대욕장"],
     description: "쓰텐카쿠 인근 레트로한 감성의 소규모 부티크 호텔입니다.",
     basePrice: 79000,
+    agodaHotelId: 1400012,
   },
   {
     id: "bangkok-sukhumvit-suite",
@@ -169,6 +183,7 @@ export const mockHotels: MockHotel[] = [
     amenities: ["루프탑 풀", "무료 와이파이", "조식 포함"],
     description: "수쿰빗 나이트라이프와 BTS 역이 가까운 인기 지역의 스위트 호텔입니다.",
     basePrice: 92000,
+    agodaHotelId: 1400013,
   },
   {
     id: "bangkok-riverside-resort",
@@ -181,6 +196,7 @@ export const mockHotels: MockHotel[] = [
     amenities: ["강변 풀", "무료 셔틀보트", "스파"],
     description: "짜오프라야 강변에 위치한 리조트형 호텔로 셔틀보트로 왓아룬까지 이동이 편리합니다.",
     basePrice: 138000,
+    agodaHotelId: 1400014,
   },
   {
     id: "bangkok-siam-central",
@@ -193,6 +209,7 @@ export const mockHotels: MockHotel[] = [
     amenities: ["무료 와이파이", "쇼핑몰 직결"],
     description: "방콕 최대 쇼핑 상권인 시암 스퀘어와 바로 연결되는 도심형 호텔입니다.",
     basePrice: 76000,
+    agodaHotelId: 1400015,
   },
   {
     id: "bangkok-silom-budget",
@@ -205,5 +222,6 @@ export const mockHotels: MockHotel[] = [
     amenities: ["무료 와이파이", "24시간 프런트"],
     description: "실롬 비즈니스 지구에 위치한 실속형 숙소로 BTS 역과 가깝습니다.",
     basePrice: 48000,
+    agodaHotelId: 1400016,
   },
 ];

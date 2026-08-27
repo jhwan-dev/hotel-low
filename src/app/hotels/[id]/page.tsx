@@ -5,9 +5,10 @@ import type { Metadata } from "next";
 import { ArrowDownIcon, ArrowUpIcon, ChevronLeftIcon, StarIcon } from "@/components/icons";
 import { Container } from "@/components/layout";
 import { Badge, LinkButton } from "@/components/ui";
-import { PriceHistoryChart, TrackHotelButton } from "@/components/hotel";
+import { PriceHistoryChart, PriceTrackingCta } from "@/components/hotel";
 import { hotelProvider } from "@/lib/hotels";
 import { computePriceStatus } from "@/lib/hotels/price-history";
+import { getMyTrackingStatus } from "@/lib/tracking/queries";
 import { addDaysISO, formatDateLabel, todayISO } from "@/lib/date";
 import { cn } from "@/lib/cn";
 import { formatPrice, formatRating } from "@/lib/format";
@@ -47,9 +48,10 @@ export default async function HotelDetailPage(props: PageProps<"/hotels/[id]">) 
   const checkIn = firstParam(sp.checkIn) ?? todayISO();
   const checkOut = firstParam(sp.checkOut) ?? addDaysISO(checkIn, 1);
 
-  const [result, history] = await Promise.all([
+  const [result, history, initialTracking] = await Promise.all([
     hotelProvider.getHotelById(id, { destination: "", checkIn, checkOut }),
-    hotelProvider.getPriceHistory(id, 90),
+    hotelProvider.getPriceHistory(id, checkIn, checkOut, 90),
+    getMyTrackingStatus(id, checkIn, checkOut),
   ]);
 
   if (!result || !history) notFound();
@@ -143,7 +145,17 @@ export default async function HotelDetailPage(props: PageProps<"/hotels/[id]">) 
       </div>
 
       <div className="flex flex-col gap-3">
-        <TrackHotelButton label="가격 추적 시작" size="lg" fullWidth />
+        <PriceTrackingCta
+          hotelId={hotel.id}
+          hotelName={hotel.name}
+          location={`${hotel.location.city}, ${hotel.location.country}`}
+          checkIn={checkIn}
+          checkOut={checkOut}
+          nights={price.nights}
+          currentPrice={price.totalPrice}
+          currency={price.currency}
+          initialSettings={initialTracking}
+        />
         {price.deepLink && (
           <>
             <LinkButton

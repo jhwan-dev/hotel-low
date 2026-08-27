@@ -16,15 +16,24 @@ function firstParam(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
 
+function toIntList(value: string | string[] | undefined): number[] {
+  const values = Array.isArray(value) ? value : value ? [value] : [];
+  return values.map(Number).filter((n) => Number.isFinite(n));
+}
+
 export default async function SearchPage(props: PageProps<"/search">) {
   const sp = await props.searchParams;
   const destination = firstParam(sp.destination) ?? "";
   const checkIn = firstParam(sp.checkIn) ?? todayISO();
   const checkOut = firstParam(sp.checkOut) ?? addDaysISO(checkIn, 1);
+  const rooms = Number(firstParam(sp.rooms) ?? 1) || 1;
+  const adults = Number(firstParam(sp.adults) ?? 2) || 2;
+  const children = Number(firstParam(sp.children) ?? 0) || 0;
+  const childrenAges = toIntList(sp.childrenAges);
 
   const hasQuery = destination.trim().length > 0;
   const response = hasQuery
-    ? await hotelProvider.search({ destination, checkIn, checkOut })
+    ? await hotelProvider.search({ destination, checkIn, checkOut, rooms, adults, children, childrenAges })
     : null;
 
   return (
@@ -38,8 +47,7 @@ export default async function SearchPage(props: PageProps<"/search">) {
 
       <HotelSearchForm
         defaultDestination={destination}
-        defaultCheckIn={checkIn}
-        defaultCheckOut={checkOut}
+        defaultStay={{ checkIn, checkOut, rooms, adults, children, childrenAges }}
       />
 
       {!hasQuery && (
