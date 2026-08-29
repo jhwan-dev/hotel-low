@@ -25,7 +25,11 @@ export function EmailMagicLinkForm({ next = "/" }: EmailMagicLinkFormProps) {
     setPending(true);
     setError(null);
     const supabase = createClient();
-    const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
+    // Just the final destination — the Magic Link email template embeds this
+    // as {{ .RedirectTo }} in a link to /auth/confirm, which verifies the
+    // OTP token itself (see that route for why, vs. /auth/callback's PKCE
+    // code exchange used for Kakao).
+    const redirectTo = `${window.location.origin}${next}`;
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: { emailRedirectTo: redirectTo },

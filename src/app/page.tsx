@@ -38,7 +38,7 @@ export default async function Home() {
           <h1 className="text-h1 text-ink">
             호텔 가격이 내려갈 때,
             <br />
-            HOTELow가 알려드릴게요.
+            호텔로우가 알려드릴게요.
           </h1>
           <p className="text-body text-ink-muted">
             여행 날짜와 호텔을 선택하면
