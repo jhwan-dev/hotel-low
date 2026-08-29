@@ -5,29 +5,26 @@ import type { Metadata } from "next";
 import { ArrowDownIcon, ArrowUpIcon, ChevronLeftIcon, StarIcon } from "@/components/icons";
 import { Container } from "@/components/layout";
 import { Badge, LinkButton } from "@/components/ui";
-import { PriceHistoryChart, PriceTrackingCta } from "@/components/hotel";
+import { PriceHistoryChart, PriceTrackingCta, StayConditionsBar } from "@/components/hotel";
 import { getCurrentUser } from "@/lib/auth/getCurrentUser";
 import { hotelProvider } from "@/lib/hotels";
-import { computePriceStatus } from "@/lib/hotels/price-history";
+import { computePriceStatus, toTotalPoints } from "@/lib/hotels/price-history";
 import { getMyTrackingStatus } from "@/lib/tracking/queries";
-import { addDaysISO, formatDateLabel, todayISO } from "@/lib/date";
+import {
+  firstParam,
+  hasExplicitStay,
+  parseStayQuery,
+  stayQueryToSearchParams,
+} from "@/lib/search/stay-query";
 import { cn } from "@/lib/cn";
 import { formatPrice, formatRating } from "@/lib/format";
-
-function firstParam(value: string | string[] | undefined): string | undefined {
-  return Array.isArray(value) ? value[0] : value;
-}
 
 export async function generateMetadata(
   props: PageProps<"/hotels/[id]">,
 ): Promise<Metadata> {
   const { id } = await props.params;
-  const checkIn = todayISO();
-  const result = await hotelProvider.getHotelById(id, {
-    destination: "",
-    checkIn,
-    checkOut: addDaysISO(checkIn, 1),
-  });
+  const stay = parseStayQuery({});
+  const result = await hotelProvider.getHotelById(id, { destination: "", ...stay });
 
   if (!result) return { title: "호텔을 찾을 수 없어요" };
 
@@ -46,21 +43,24 @@ const statusStyles = {
 export default async function HotelDetailPage(props: PageProps<"/hotels/[id]">) {
   const { id } = await props.params;
   const sp = await props.searchParams;
-  const checkIn = firstParam(sp.checkIn) ?? todayISO();
-  const checkOut = firstParam(sp.checkOut) ?? addDaysISO(checkIn, 1);
+  const stay = parseStayQuery(sp);
+  const confirmedStay = hasExplicitStay(sp);
+  const autoOpenTrackingSheet = firstParam(sp.startTracking) === "1";
 
   const [result, history, initialTracking, user] = await Promise.all([
-    hotelProvider.getHotelById(id, { destination: "", checkIn, checkOut }),
-    hotelProvider.getPriceHistory(id, checkIn, checkOut, 90),
-    getMyTrackingStatus(id, checkIn, checkOut),
+    hotelProvider.getHotelById(id, { destination: "", ...stay }),
+    hotelProvider.getPriceHistory(id, stay.checkIn, stay.checkOut, 90),
+    getMyTrackingStatus(id, stay.checkIn, stay.checkOut),
     getCurrentUser(),
   ]);
 
   if (!result || !history) notFound();
 
   const { hotel, price } = result;
-  const last30 = history.points.slice(-30);
-  const status = computePriceStatus(price.nightlyPrice, last30, price.currency);
+  const totalPoints = toTotalPoints(history.points, price.nights, stay.rooms);
+  const last30Total = totalPoints.slice(-30);
+  const previousTotal = last30Total.length >= 2 ? last30Total[last30Total.length - 2].price : null;
+  const status = computePriceStatus(price.totalPrice, previousTotal, last30Total, price.currency);
 
   return (
     <Container className="flex flex-col gap-5 py-4">
@@ -109,24 +109,30 @@ export default async function HotelDetailPage(props: PageProps<"/hotels/[id]">) 
         </p>
       </div>
 
-      <div className="flex items-center justify-between rounded-control bg-surface-muted px-4 py-3 text-small">
-        <span className="font-medium text-ink">
-          {formatDateLabel(checkIn)} – {formatDateLabel(checkOut)}
-        </span>
-        <span className="text-ink-muted">{price.nights}박</span>
-      </div>
+      <StayConditionsBar
+        hotelId={id}
+        stay={stay}
+        nights={price.nights}
+        confirmed={confirmedStay}
+      />
 
-      {/* Price — the single most important number on this screen */}
+      {/* Price — the single most important number on this screen. Nightly
+          rate leads (what search results were sorted by), total stay price
+          follows right under it — never shown as the only figure, so the two
+          never read as contradictory numbers. */}
       <div className="flex flex-col gap-3 rounded-card border border-border bg-surface p-5">
         <span className="text-small text-ink-muted">현재 가격</span>
-        <div className="flex items-baseline gap-2">
-          <span className="text-display tabular-nums text-ink">
-            {formatPrice(price.totalPrice, price.currency)}
-          </span>
+        <div className="flex flex-col gap-0.5">
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-display tabular-nums text-ink">
+              {formatPrice(price.nightlyPrice, price.currency)}
+            </span>
+            <span className="text-body text-ink-muted">/ 1박</span>
+          </div>
+          <p className="text-price-sm tabular-nums text-ink-muted">
+            {formatPrice(price.totalPrice, price.currency)} / {price.nights}박
+          </p>
         </div>
-        <p className="text-price-sm tabular-nums text-ink-muted">
-          1박 {formatPrice(price.nightlyPrice, price.currency)}
-        </p>
 
         <div
           className={cn(
@@ -140,25 +146,30 @@ export default async function HotelDetailPage(props: PageProps<"/hotels/[id]">) 
         </div>
       </div>
 
-      {/* Price history — swap `history.points` for a real Agoda/Booking feed later; PriceHistoryChart itself only needs PricePoint[]. */}
+      {/* Price history — swap `history.points` for a real Agoda/Booking feed later; PriceHistoryChart itself only needs PricePoint[]. Always the same total-stay basis as the price block above, so "현재가" here matches the headline number exactly. */}
       <div className="flex flex-col gap-1 rounded-card border border-border bg-surface p-5">
-        <h2 className="text-h3 text-ink">가격 변화 추이</h2>
-        <PriceHistoryChart points={history.points} currency={price.currency} className="pt-3" />
+        <h2 className="text-h3 text-ink">총 숙박 가격 변화</h2>
+        <p className="text-caption text-ink-muted">{price.nights}박 총 가격 기준</p>
+        <PriceHistoryChart points={totalPoints} currency={price.currency} className="pt-3" />
       </div>
 
       <div className="flex flex-col gap-3">
         <PriceTrackingCta
+          key={`${stay.checkIn}|${stay.checkOut}|${stay.adults}|${stay.children}|${stay.rooms}`}
           hotelId={hotel.id}
           hotelName={hotel.name}
           location={`${hotel.location.city}, ${hotel.location.country}`}
-          checkIn={checkIn}
-          checkOut={checkOut}
+          stay={stay}
           nights={price.nights}
           currentPrice={price.totalPrice}
           currency={price.currency}
           initialSettings={initialTracking}
           isLoggedIn={user !== null}
-          loginRedirectPath={`/hotels/${id}?checkIn=${checkIn}&checkOut=${checkOut}`}
+          loginRedirectPath={
+            confirmedStay ? `/hotels/${id}?${stayQueryToSearchParams(stay).toString()}` : `/hotels/${id}`
+          }
+          hasExplicitStay={confirmedStay}
+          autoOpen={autoOpenTrackingSheet}
         />
         {price.deepLink && (
           <>
@@ -166,14 +177,14 @@ export default async function HotelDetailPage(props: PageProps<"/hotels/[id]">) 
               href={price.deepLink}
               target="_blank"
               rel="noopener noreferrer"
-              variant="outline"
+              variant={status.trend === "down" ? "success" : "outline"}
               size="lg"
               fullWidth
             >
-              예약하러 가기
+              {status.trend === "down" ? "지금 예약하기" : "예약하러 가기"}
             </LinkButton>
             <p className="text-center text-caption text-ink-muted">
-              Agoda · Booking.com 실제 연동 전 mock 링크입니다.
+              Agoda에서 예약 · 실제 연동 전 mock 링크입니다.
             </p>
           </>
         )}

@@ -13,6 +13,9 @@ export interface TrackedHotelForCheck {
   hotelId: string;
   checkIn: string;
   checkOut: string;
+  adults: number;
+  children: number;
+  rooms: number;
   targetPrice: number;
   currency: Currency;
   notifyOnAnyDrop: boolean;
@@ -31,7 +34,7 @@ export async function listAllActiveTrackedHotels(): Promise<TrackedHotelForCheck
   const { data, error } = await admin
     .from("tracked_hotels")
     .select(
-      "id, user_id, hotel_id, check_in, check_out, target_price, currency, notify_on_any_drop, notify_on_new_low",
+      "id, user_id, hotel_id, check_in, check_out, adults, children, rooms, target_price, currency, notify_on_any_drop, notify_on_new_low",
     )
     .eq("is_active", true);
   if (error) throw error;
@@ -50,6 +53,9 @@ export async function listAllActiveTrackedHotels(): Promise<TrackedHotelForCheck
       hotelId: entry.appHotelId,
       checkIn: row.check_in,
       checkOut: row.check_out,
+      adults: row.adults,
+      children: row.children,
+      rooms: row.rooms,
       targetPrice: Number(row.target_price),
       currency: row.currency as Currency,
       notifyOnAnyDrop: row.notify_on_any_drop,

@@ -3,16 +3,19 @@ import Link from "next/link";
 import { StarIcon } from "@/components/icons";
 import { Card, CardBody, CardFooter, CardMedia } from "@/components/ui";
 import { formatPrice, formatRating } from "@/lib/format";
+import { stayQueryToSearchParams, type StayQuery } from "@/lib/search/stay-query";
 import type { HotelSearchResult } from "@/types/hotel";
 import { TrackHotelButton } from "./TrackHotelButton";
 
 export interface HotelCardProps {
   result: HotelSearchResult;
+  /** This search's full conditions — carried into the detail link so it doesn't have to ask again. */
+  stay: StayQuery;
 }
 
-export function HotelCard({ result }: HotelCardProps) {
+export function HotelCard({ result, stay }: HotelCardProps) {
   const { hotel, price } = result;
-  const detailHref = `/hotels/${hotel.id}?checkIn=${price.checkIn}&checkOut=${price.checkOut}`;
+  const detailHref = `/hotels/${hotel.id}?${stayQueryToSearchParams(stay).toString()}`;
 
   return (
     <Card className="overflow-hidden">
@@ -35,16 +38,14 @@ export function HotelCard({ result }: HotelCardProps) {
           <p className="text-small text-ink-muted">
             {hotel.location.city}, {hotel.location.country}
           </p>
-          <div className="flex items-baseline gap-2 pt-1">
+          <div className="flex items-baseline gap-1.5 pt-1">
             <span className="text-price-md tabular-nums text-ink">
-              {formatPrice(price.totalPrice, price.currency)}
+              {formatPrice(price.nightlyPrice, price.currency)}
             </span>
-            <span className="text-small text-ink-muted">
-              총 {price.nights}박
-            </span>
+            <span className="text-small text-ink-muted">/ 1박</span>
           </div>
           <p className="text-small text-ink-muted tabular-nums">
-            1박 {formatPrice(price.nightlyPrice, price.currency)}~
+            {formatPrice(price.totalPrice, price.currency)} / {price.nights}박
           </p>
         </CardBody>
       </Link>

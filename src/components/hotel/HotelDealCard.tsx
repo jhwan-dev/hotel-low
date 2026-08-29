@@ -14,12 +14,30 @@ export interface HotelDealCardProps {
   trailing: ReactNode;
   /** Second line under the price row, e.g. "40,400원 하락". */
   secondaryLine?: ReactNode;
+  /** Overrides the default (hotel-only, no query) detail link — pass full stay params when this card reflects a real, confirmed condition (e.g. an active tracking). */
+  detailHref?: string;
+  /**
+   * False for cards backed by a real, confirmed stay (e.g. an active
+   * tracking) — suppresses the "~ · 1박 기준" hint. True (default) for
+   * generic browse cards (price drops, low availability) whose price is
+   * only for a placeholder date the user never chose, so it shouldn't read
+   * as a firm quote.
+   */
+  approximate?: boolean;
 }
 
 /** Shared shape for every home-screen deal card (price drops, low availability, …) so they read as one system. */
-export function HotelDealCard({ hotel, price, ribbon, trailing, secondaryLine }: HotelDealCardProps) {
+export function HotelDealCard({
+  hotel,
+  price,
+  ribbon,
+  trailing,
+  secondaryLine,
+  detailHref,
+  approximate = true,
+}: HotelDealCardProps) {
   return (
-    <Link href={`/hotels/${hotel.id}?checkIn=${price.checkIn}&checkOut=${price.checkOut}`}>
+    <Link href={detailHref ?? `/hotels/${hotel.id}`}>
       <Card className="overflow-hidden">
         <CardMedia className="aspect-square">
           <Image
@@ -36,10 +54,12 @@ export function HotelDealCard({ hotel, price, ribbon, trailing, secondaryLine }:
           <div className="flex flex-wrap items-baseline gap-1.5">
             <span className="text-price-sm font-bold tabular-nums text-ink">
               {formatPrice(price.nightlyPrice, price.currency)}
+              {approximate && "~"}
             </span>
             {trailing}
           </div>
           {secondaryLine}
+          {approximate && <span className="text-caption text-ink-muted">1박 기준</span>}
         </CardBody>
       </Card>
     </Link>

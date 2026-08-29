@@ -2,7 +2,16 @@ import type { PriceTrackingSettings } from "@/types/tracking";
 
 export type TrackingInput = Pick<
   PriceTrackingSettings,
-  "hotelId" | "checkIn" | "checkOut" | "currency" | "targetPrice" | "notifyOnAnyDrop" | "notifyOnNewLow"
+  | "hotelId"
+  | "checkIn"
+  | "checkOut"
+  | "adults"
+  | "children"
+  | "rooms"
+  | "currency"
+  | "targetPrice"
+  | "notifyOnAnyDrop"
+  | "notifyOnNewLow"
 >;
 
 /**

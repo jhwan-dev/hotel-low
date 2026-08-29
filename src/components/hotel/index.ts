@@ -8,3 +8,4 @@ export * from "./HotelDealCard";
 export * from "./PriceDropCard";
 export * from "./LowAvailabilityCard";
 export * from "./TrackedHotelCard";
+export * from "./StayConditionsBar";

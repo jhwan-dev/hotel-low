@@ -1,7 +1,7 @@
 import "server-only";
 
 import { hotelProvider } from "@/lib/hotels";
-import { computePriceStatus, type PriceStatus } from "@/lib/hotels/price-history";
+import { computePriceStatus, toTotalPoints, type PriceStatus } from "@/lib/hotels/price-history";
 import type { HotelSearchResult } from "@/types/hotel";
 import type { PriceTrackingSettings } from "@/types/tracking";
 
@@ -31,22 +31,29 @@ export async function resolveTrackingDashboard(
           destination: "",
           checkIn: settings.checkIn,
           checkOut: settings.checkOut,
+          adults: settings.adults,
+          children: settings.children,
+          rooms: settings.rooms,
         }),
         hotelProvider.getPriceHistory(settings.hotelId, settings.checkIn, settings.checkOut, 30),
       ]);
       if (!result) return null;
 
       const points = history?.points ?? [];
-      const previousPoint = points.length >= 2 ? points[points.length - 2] : null;
-      const previousTotalPrice = previousPoint ? previousPoint.price * result.price.nights : null;
-      const changePercent = previousPoint
-        ? Math.round(
-            ((result.price.nightlyPrice - previousPoint.price) / previousPoint.price) * 100,
-          )
+      const totalPoints = toTotalPoints(points, result.price.nights, settings.rooms);
+      const previousPoint = totalPoints.length >= 2 ? totalPoints[totalPoints.length - 2] : null;
+      const previousTotalPrice = previousPoint ? previousPoint.price : null;
+      const changePercent = previousTotalPrice
+        ? Math.round(((result.price.totalPrice - previousTotalPrice) / previousTotalPrice) * 100)
         : null;
       const status =
-        points.length > 0
-          ? computePriceStatus(result.price.nightlyPrice, points, result.price.currency)
+        totalPoints.length > 0
+          ? computePriceStatus(
+              result.price.totalPrice,
+              previousTotalPrice,
+              totalPoints,
+              result.price.currency,
+            )
           : null;
       const lastCheckedAt = points.length > 0 ? points[points.length - 1].checkedAt : null;
 

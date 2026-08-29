@@ -9,6 +9,7 @@ import { cn } from "@/lib/cn";
 import { formatRelativeDays, formatShortDate } from "@/lib/date";
 import { formatPrice } from "@/lib/format";
 import type { PriceStatus } from "@/lib/hotels/price-history";
+import { stayQueryToSearchParams } from "@/lib/search/stay-query";
 import { startTracking, stopTracking } from "@/lib/tracking/actions";
 import type { Hotel, RoomPrice } from "@/types/hotel";
 import type { PriceTrackingSettings } from "@/types/tracking";
@@ -43,7 +44,14 @@ export function TrackedHotelCard({
   const [stopped, setStopped] = useState(false);
   const [currentSettings, setCurrentSettings] = useState(settings);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const detailHref = `/hotels/${hotel.id}?checkIn=${currentSettings.checkIn}&checkOut=${currentSettings.checkOut}`;
+  const detailHref = `/hotels/${hotel.id}?${stayQueryToSearchParams({
+    checkIn: currentSettings.checkIn,
+    checkOut: currentSettings.checkOut,
+    adults: currentSettings.adults,
+    children: currentSettings.children,
+    rooms: currentSettings.rooms,
+    childrenAges: [],
+  }).toString()}`;
   const isDrop = changePercent !== null && changePercent < 0;
 
   function stop() {
@@ -61,6 +69,9 @@ export function TrackedHotelCard({
         hotelId: hotel.id,
         checkIn: currentSettings.checkIn,
         checkOut: currentSettings.checkOut,
+        adults: currentSettings.adults,
+        children: currentSettings.children,
+        rooms: currentSettings.rooms,
         currency: currentSettings.currency,
         ...values,
       });

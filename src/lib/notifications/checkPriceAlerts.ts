@@ -3,6 +3,7 @@ import "server-only";
 import { MOCK_USER_ID } from "@/lib/auth/getCurrentUser";
 import { hotelProvider } from "@/lib/hotels";
 import { todayISO } from "@/lib/date";
+import { toTotalPoints } from "@/lib/hotels/price-history";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { trackedHotelsRepository } from "@/lib/tracking";
 import type { PriceTrackingSettings } from "@/types/tracking";
@@ -19,6 +20,9 @@ function toCheckItem(userId: string, settings: PriceTrackingSettings): TrackedHo
     hotelId: settings.hotelId,
     checkIn: settings.checkIn,
     checkOut: settings.checkOut,
+    adults: settings.adults,
+    children: settings.children,
+    rooms: settings.rooms,
     targetPrice: settings.targetPrice,
     currency: settings.currency,
     notifyOnAnyDrop: settings.notifyOnAnyDrop,
@@ -55,18 +59,21 @@ export async function checkPriceAlerts(): Promise<PriceCheckSummary> {
         destination: "",
         checkIn: item.checkIn,
         checkOut: item.checkOut,
+        adults: item.adults,
+        children: item.children,
+        rooms: item.rooms,
       }),
       hotelProvider.getPriceHistory(item.hotelId, item.checkIn, item.checkOut, 30),
     ]);
     if (!result || !history || history.points.length === 0) continue;
 
-    const points = history.points;
-    const previousPoint = points.length >= 2 ? points[points.length - 2] : null;
+    const totalPoints = toTotalPoints(history.points, result.price.nights, item.rooms);
+    const previousPoint = totalPoints.length >= 2 ? totalPoints[totalPoints.length - 2] : null;
 
     const events = detectPriceEvents({
-      currentNightly: result.price.nightlyPrice,
-      previousNightly: previousPoint?.price ?? null,
-      last30Days: points,
+      currentTotal: result.price.totalPrice,
+      previousTotal: previousPoint?.price ?? null,
+      last30DaysTotal: totalPoints,
       targetPrice: item.targetPrice,
       notifyOnAnyDrop: item.notifyOnAnyDrop,
       notifyOnNewLow: item.notifyOnNewLow,
@@ -88,7 +95,7 @@ export async function checkPriceAlerts(): Promise<PriceCheckSummary> {
         checkOut: item.checkOut,
         type: event.type,
         previousPrice: previousPoint?.price ?? null,
-        currentPrice: result.price.nightlyPrice,
+        currentPrice: result.price.totalPrice,
         currency: result.price.currency,
         message: `${result.hotel.name}: ${event.message}`,
       });

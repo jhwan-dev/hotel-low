@@ -10,6 +10,7 @@ import { getLowAvailabilityHotels } from "@/lib/hotels/low-availability";
 import { getMyTrackedHotels } from "@/lib/tracking/queries";
 import { resolveTrackingDashboard } from "@/lib/tracking/resolveTrackingDashboard";
 import { formatPrice } from "@/lib/format";
+import { stayQueryToSearchParams } from "@/lib/search/stay-query";
 
 // All three curated sections are computed relative to today (or read the
 // signed-in user's tracked list); without this the page would statically
@@ -66,11 +67,21 @@ export default async function Home() {
                 previousTotalPrice !== null
                   ? Math.abs(previousTotalPrice - result.price.totalPrice)
                   : null;
+              const detailHref = `/hotels/${result.hotel.id}?${stayQueryToSearchParams({
+                checkIn: settings.checkIn,
+                checkOut: settings.checkOut,
+                adults: settings.adults,
+                children: settings.children,
+                rooms: settings.rooms,
+                childrenAges: [],
+              }).toString()}`;
               return (
                 <HotelDealCard
                   key={`${settings.hotelId}-${settings.checkIn}-${settings.checkOut}`}
                   hotel={result.hotel}
                   price={result.price}
+                  detailHref={detailHref}
+                  approximate={false}
                   ribbon={{ label: "추적 중", tone: "tracking" }}
                   trailing={
                     changePercent !== null && changePercent !== 0 ? (

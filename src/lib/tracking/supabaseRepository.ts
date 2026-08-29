@@ -12,17 +12,26 @@ import type { TrackedHotelsRepository, TrackingInput } from "./repository";
 interface TrackedHotelRow {
   check_in: string;
   check_out: string;
+  adults: number;
+  children: number;
+  rooms: number;
   currency: string;
   target_price: number | string;
   notify_on_any_drop: boolean;
   notify_on_new_low: boolean;
 }
 
+const TRACKED_HOTEL_COLUMNS =
+  "check_in, check_out, adults, children, rooms, currency, target_price, notify_on_any_drop, notify_on_new_low";
+
 function toSettings(row: TrackedHotelRow, hotelId: string): PriceTrackingSettings {
   return {
     hotelId,
     checkIn: row.check_in,
     checkOut: row.check_out,
+    adults: row.adults,
+    children: row.children,
+    rooms: row.rooms,
     currency: row.currency as Currency,
     targetPrice: Number(row.target_price),
     notifyOnAnyDrop: row.notify_on_any_drop,
@@ -60,7 +69,7 @@ export class SupabaseTrackedHotelsRepository implements TrackedHotelsRepository 
     const supabase = await createClient();
     const { data, error } = await supabase
       .from("tracked_hotels")
-      .select("id, check_in, check_out, currency, target_price, notify_on_any_drop, notify_on_new_low")
+      .select(`id, ${TRACKED_HOTEL_COLUMNS}`)
       .eq("user_id", userId)
       .eq("hotel_id", hotelRowId)
       .eq("check_in", checkIn)
@@ -75,7 +84,7 @@ export class SupabaseTrackedHotelsRepository implements TrackedHotelsRepository 
     const supabase = await createClient();
     const { data, error } = await supabase
       .from("tracked_hotels")
-      .select("hotel_id, check_in, check_out, currency, target_price, notify_on_any_drop, notify_on_new_low")
+      .select(`hotel_id, ${TRACKED_HOTEL_COLUMNS}`)
       .eq("user_id", userId)
       .eq("is_active", true)
       .order("created_at", { ascending: false });
@@ -140,6 +149,9 @@ export class SupabaseTrackedHotelsRepository implements TrackedHotelsRepository 
       hotel_id: hotelRowId,
       check_in: input.checkIn,
       check_out: input.checkOut,
+      adults: input.adults,
+      children: input.children,
+      rooms: input.rooms,
       target_price: input.targetPrice,
       currency: input.currency,
       notify_on_any_drop: input.notifyOnAnyDrop,
@@ -152,12 +164,12 @@ export class SupabaseTrackedHotelsRepository implements TrackedHotelsRepository 
           .from("tracked_hotels")
           .update(payload)
           .eq("id", existing.id)
-          .select("id, check_in, check_out, currency, target_price, notify_on_any_drop, notify_on_new_low")
+          .select(`id, ${TRACKED_HOTEL_COLUMNS}`)
           .single()
       : await supabase
           .from("tracked_hotels")
           .insert(payload)
-          .select("id, check_in, check_out, currency, target_price, notify_on_any_drop, notify_on_new_low")
+          .select(`id, ${TRACKED_HOTEL_COLUMNS}`)
           .single();
     if (error) throw error;
 
