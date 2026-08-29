@@ -7,3 +7,4 @@ export * from "./PriceTrackingCta";
 export * from "./HotelDealCard";
 export * from "./PriceDropCard";
 export * from "./LowAvailabilityCard";
+export * from "./TrackedHotelCard";

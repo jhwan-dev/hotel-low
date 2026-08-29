@@ -20,6 +20,9 @@ export interface TrackedHotelsRepository {
     checkOut: string,
   ): Promise<PriceTrackingSettings | null>;
 
+  /** Every active tracking for this user, most recent first — the "내 추적 목록" page. */
+  listActive(userId: string): Promise<PriceTrackingSettings[]>;
+
   /** Creates a new active tracking, or updates the existing active one for the same (hotel, stay). */
   upsert(userId: string, input: TrackingInput): Promise<PriceTrackingSettings>;
 

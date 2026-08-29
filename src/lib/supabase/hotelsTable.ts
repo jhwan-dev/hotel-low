@@ -18,6 +18,20 @@ export async function findHotelRowId(
   return data?.id ?? null;
 }
 
+/** Reverse of findHotelRowId — given the internal uuid, get back the provider ref. Public SELECT policy, session/anon client is enough. */
+export async function getHotelProviderRef(
+  supabase: SupabaseClient,
+  hotelRowId: string,
+): Promise<{ provider: string; providerHotelId: string } | null> {
+  const { data, error } = await supabase
+    .from("hotels")
+    .select("provider, provider_hotel_id")
+    .eq("id", hotelRowId)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? { provider: data.provider, providerHotelId: data.provider_hotel_id } : null;
+}
+
 export interface HotelRowInput {
   provider: string;
   providerHotelId: number;

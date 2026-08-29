@@ -15,3 +15,11 @@ export async function getMyTrackingStatus(
 
   return trackedHotelsRepository.findActive(user.id, hotelId, checkIn, checkOut);
 }
+
+/** For Server Components — the signed-in user's full tracked-hotel list, or [] if signed out. */
+export async function getMyTrackedHotels(): Promise<PriceTrackingSettings[]> {
+  const user = await getCurrentUser();
+  if (!user) return [];
+
+  return trackedHotelsRepository.listActive(user.id);
+}

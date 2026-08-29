@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { LoginPromptSheet } from "@/components/auth/LoginPromptSheet";
 import { BellIcon } from "@/components/icons";
 import { Badge, Button } from "@/components/ui";
 import { formatPrice } from "@/lib/format";
@@ -20,6 +21,10 @@ export interface PriceTrackingCtaProps {
   currency: Currency;
   /** Fetched server-side so the CTA renders in the right state on first paint — no login-wall flash. */
   initialSettings: PriceTrackingSettings | null;
+  /** Also fetched server-side — decides whether "가격 추적 시작" opens the settings sheet or a login prompt. */
+  isLoggedIn: boolean;
+  /** Where to return to after logging in — this hotel's detail page, dates and all. */
+  loginRedirectPath: string;
 }
 
 export function PriceTrackingCta({
@@ -32,11 +37,22 @@ export function PriceTrackingCta({
   currentPrice,
   currency,
   initialSettings,
+  isLoggedIn,
+  loginRedirectPath,
 }: PriceTrackingCtaProps) {
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [loginPromptOpen, setLoginPromptOpen] = useState(false);
   const [settings, setSettings] = useState<PriceTrackingSettings | null>(initialSettings);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  function startTrackingFlow() {
+    if (!isLoggedIn) {
+      setLoginPromptOpen(true);
+      return;
+    }
+    setSheetOpen(true);
+  }
 
   function submit(values: Pick<PriceTrackingSettings, "targetPrice" | "notifyOnAnyDrop" | "notifyOnNewLow">) {
     setError(null);
@@ -96,7 +112,7 @@ export function PriceTrackingCta({
           </div>
         </div>
       ) : (
-        <Button size="lg" fullWidth disabled={isPending} onClick={() => setSheetOpen(true)}>
+        <Button size="lg" fullWidth disabled={isPending} onClick={startTrackingFlow}>
           가격 추적 시작
         </Button>
       )}
@@ -115,6 +131,12 @@ export function PriceTrackingCta({
         currency={currency}
         initial={settings ?? undefined}
         onSubmit={submit}
+      />
+
+      <LoginPromptSheet
+        open={loginPromptOpen}
+        onClose={() => setLoginPromptOpen(false)}
+        next={loginRedirectPath}
       />
     </>
   );

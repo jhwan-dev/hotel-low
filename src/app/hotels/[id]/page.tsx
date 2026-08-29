@@ -6,6 +6,7 @@ import { ArrowDownIcon, ArrowUpIcon, ChevronLeftIcon, StarIcon } from "@/compone
 import { Container } from "@/components/layout";
 import { Badge, LinkButton } from "@/components/ui";
 import { PriceHistoryChart, PriceTrackingCta } from "@/components/hotel";
+import { getCurrentUser } from "@/lib/auth/getCurrentUser";
 import { hotelProvider } from "@/lib/hotels";
 import { computePriceStatus } from "@/lib/hotels/price-history";
 import { getMyTrackingStatus } from "@/lib/tracking/queries";
@@ -48,10 +49,11 @@ export default async function HotelDetailPage(props: PageProps<"/hotels/[id]">) 
   const checkIn = firstParam(sp.checkIn) ?? todayISO();
   const checkOut = firstParam(sp.checkOut) ?? addDaysISO(checkIn, 1);
 
-  const [result, history, initialTracking] = await Promise.all([
+  const [result, history, initialTracking, user] = await Promise.all([
     hotelProvider.getHotelById(id, { destination: "", checkIn, checkOut }),
     hotelProvider.getPriceHistory(id, checkIn, checkOut, 90),
     getMyTrackingStatus(id, checkIn, checkOut),
+    getCurrentUser(),
   ]);
 
   if (!result || !history) notFound();
@@ -155,6 +157,8 @@ export default async function HotelDetailPage(props: PageProps<"/hotels/[id]">) 
           currentPrice={price.totalPrice}
           currency={price.currency}
           initialSettings={initialTracking}
+          isLoggedIn={user !== null}
+          loginRedirectPath={`/hotels/${id}?checkIn=${checkIn}&checkOut=${checkOut}`}
         />
         {price.deepLink && (
           <>

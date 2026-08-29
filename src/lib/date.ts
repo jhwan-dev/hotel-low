@@ -35,6 +35,17 @@ export function formatShortDate(iso: string): string {
   return `${Number(month)}/${Number(day)}`;
 }
 
+/** "오늘 확인" / "어제 확인" / "N일 전 확인" — for a price point's checkedAt date. */
+export function formatRelativeDays(iso: string): string {
+  const diffDays = Math.round(
+    (new Date(`${todayISO()}T00:00:00Z`).getTime() - new Date(`${iso}T00:00:00Z`).getTime()) /
+      (1000 * 60 * 60 * 24),
+  );
+  if (diffDays <= 0) return "오늘 확인";
+  if (diffDays === 1) return "어제 확인";
+  return `${diffDays}일 전 확인`;
+}
+
 /** First day of the month `monthsFromToday` months after today, as YYYY-MM-01. */
 export function startOfMonthISO(monthsFromToday: number): string {
   const now = new Date();

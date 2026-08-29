@@ -48,8 +48,16 @@ export class MockPriceHistoryRepository implements PriceHistoryRepository {
   }
 }
 
-/** Reads Supabase's hotel_price_history — public SELECT policy, so the session/anon client is enough. */
+/**
+ * Reads Supabase's hotel_price_history — public SELECT policy, so the
+ * session/anon client is enough. Nothing writes to this table yet (that's a
+ * scheduled price-check job we haven't built), so for any stay Supabase has
+ * no rows for yet, this falls back to the same deterministic mock generator
+ * MockPriceHistoryRepository uses — real rows win the moment they exist.
+ */
 export class SupabasePriceHistoryRepository implements PriceHistoryRepository {
+  private readonly fallback = new MockPriceHistoryRepository();
+
   constructor(private readonly catalog: HotelCatalog) {}
 
   async getHistory(
@@ -59,11 +67,11 @@ export class SupabasePriceHistoryRepository implements PriceHistoryRepository {
     days: PriceHistoryRangeDays,
   ): Promise<PriceHistory | null> {
     const entry = this.catalog.findByAppHotelId(hotelId);
-    if (!entry) return null;
+    if (!entry) return this.fallback.getHistory(hotelId, checkIn, checkOut, days);
 
     const supabase = await createClient();
     const hotelRowId = await findHotelRowId(supabase, "agoda", entry.agodaHotelId);
-    if (!hotelRowId) return null;
+    if (!hotelRowId) return this.fallback.getHistory(hotelId, checkIn, checkOut, days);
 
     const since = addDaysISO(todayISO(), -(days - 1));
     const { data, error } = await supabase
@@ -75,7 +83,7 @@ export class SupabasePriceHistoryRepository implements PriceHistoryRepository {
       .gte("checked_at", since)
       .order("checked_at", { ascending: true });
     if (error) throw error;
-    if (!data || data.length === 0) return null;
+    if (!data || data.length === 0) return this.fallback.getHistory(hotelId, checkIn, checkOut, days);
 
     return {
       hotelId,

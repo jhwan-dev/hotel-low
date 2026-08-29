@@ -24,6 +24,10 @@ export class MockTrackedHotelsRepository implements TrackedHotelsRepository {
     return this.rows.find((r) => matches(r, hotelId, checkIn, checkOut)) ?? null;
   }
 
+  async listActive(_userId: string): Promise<PriceTrackingSettings[]> {
+    return [...this.rows];
+  }
+
   async upsert(_userId: string, input: TrackingInput): Promise<PriceTrackingSettings> {
     const index = this.rows.findIndex((r) =>
       matches(r, input.hotelId, input.checkIn, input.checkOut),

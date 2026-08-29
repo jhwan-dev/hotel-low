@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
+import type { PointerEvent as ReactPointerEvent } from "react";
 import { cn } from "@/lib/cn";
 import { formatPrice } from "@/lib/format";
 import { priceStats } from "@/lib/hotels/price-history";
@@ -29,8 +30,13 @@ function shortDate(iso: string): string {
   return `${Number(month)}/${Number(day)}`;
 }
 
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
 export function PriceHistoryChart({ points, currency, className }: PriceHistoryChartProps) {
   const [range, setRange] = useState<PriceHistoryRangeDays>(30);
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const gradientId = useId();
 
   const visible = points.slice(-range);
@@ -56,6 +62,29 @@ export function PriceHistoryChart({ points, currency, className }: PriceHistoryC
   const avgY =
     CHART_HEIGHT - PADDING_Y - ((stats.avg - stats.min) / span) * (CHART_HEIGHT - PADDING_Y * 2);
   const last = coords[coords.length - 1];
+  const active = activeIndex !== null ? coords[activeIndex] : null;
+
+  function selectNearest(event: ReactPointerEvent<SVGRectElement>) {
+    const rect = event.currentTarget.getBoundingClientRect();
+    if (rect.width === 0 || coords.length === 0) return;
+    const relX = ((event.clientX - rect.left) / rect.width) * CHART_WIDTH;
+    let nearest = 0;
+    let minDist = Infinity;
+    coords.forEach((c, i) => {
+      const dist = Math.abs(c.x - relX);
+      if (dist < minDist) {
+        minDist = dist;
+        nearest = i;
+      }
+    });
+    setActiveIndex(nearest);
+  }
+
+  function clearActive(event: ReactPointerEvent<SVGRectElement>) {
+    // Touch taps fire pointerleave right after lifting the finger — only
+    // mouse hover should clear the tooltip on leave.
+    if (event.pointerType === "mouse") setActiveIndex(null);
+  }
 
   return (
     <div className={cn("flex flex-col gap-4", className)}>
@@ -64,7 +93,10 @@ export function PriceHistoryChart({ points, currency, className }: PriceHistoryC
           <button
             key={option.days}
             type="button"
-            onClick={() => setRange(option.days)}
+            onClick={() => {
+              setRange(option.days);
+              setActiveIndex(null);
+            }}
             className={cn(
               "rounded-full px-3 py-1.5 text-small font-semibold transition-colors",
               range === option.days
@@ -77,37 +109,88 @@ export function PriceHistoryChart({ points, currency, className }: PriceHistoryC
         ))}
       </div>
 
-      <svg
-        viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
-        preserveAspectRatio="none"
-        className="h-44 w-full"
-        role="img"
-        aria-label={`최근 ${range}일 가격 변화 그래프`}
-      >
-        <defs>
-          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--color-primary)" stopOpacity="0.25" />
-            <stop offset="100%" stopColor="var(--color-primary)" stopOpacity="0" />
-          </linearGradient>
-        </defs>
+      <div className="relative">
+        <svg
+          viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
+          preserveAspectRatio="none"
+          className="h-44 w-full touch-pan-y"
+          role="img"
+          aria-label={`최근 ${range}일 가격 변화 그래프`}
+        >
+          <defs>
+            <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--color-primary)" stopOpacity="0.25" />
+              <stop offset="100%" stopColor="var(--color-primary)" stopOpacity="0" />
+            </linearGradient>
+          </defs>
 
-        <line
-          x1={PADDING_X}
-          x2={CHART_WIDTH - PADDING_X}
-          y1={avgY}
-          y2={avgY}
-          stroke="var(--color-ink-muted)"
-          strokeDasharray="4 4"
-          strokeWidth={1}
-        />
+          <line
+            x1={PADDING_X}
+            x2={CHART_WIDTH - PADDING_X}
+            y1={avgY}
+            y2={avgY}
+            stroke="var(--color-ink-muted)"
+            strokeDasharray="4 4"
+            strokeWidth={1}
+          />
 
-        <path d={areaPath} fill={`url(#${gradientId})`} stroke="none" />
-        <path d={linePath} fill="none" stroke="var(--color-primary)" strokeWidth={2} />
+          <path d={areaPath} fill={`url(#${gradientId})`} stroke="none" />
+          <path d={linePath} fill="none" stroke="var(--color-primary)" strokeWidth={2} />
 
-        {last && (
-          <circle cx={last.x} cy={last.y} r={4} fill="var(--color-primary)" />
+          {last && !active && (
+            <circle cx={last.x} cy={last.y} r={4} fill="var(--color-primary)" />
+          )}
+
+          {active && (
+            <>
+              <line
+                x1={active.x}
+                x2={active.x}
+                y1={PADDING_Y}
+                y2={CHART_HEIGHT - PADDING_Y}
+                stroke="var(--color-border)"
+                strokeWidth={1}
+              />
+              <circle
+                cx={active.x}
+                cy={active.y}
+                r={5}
+                fill="var(--color-primary)"
+                stroke="white"
+                strokeWidth={2}
+              />
+            </>
+          )}
+
+          {/* Transparent hit layer on top, so a mouse hover or a finger tap
+              anywhere over the chart snaps to the nearest point's tooltip. */}
+          <rect
+            x={0}
+            y={0}
+            width={CHART_WIDTH}
+            height={CHART_HEIGHT}
+            fill="transparent"
+            className="cursor-pointer"
+            onPointerDown={selectNearest}
+            onPointerMove={selectNearest}
+            onPointerLeave={clearActive}
+          />
+        </svg>
+
+        {active && (
+          <div
+            className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-control bg-ink px-2.5 py-1.5 text-caption text-white shadow-lg"
+            style={{
+              left: `${clamp((active.x / CHART_WIDTH) * 100, 8, 92)}%`,
+              top: `${(active.y / CHART_HEIGHT) * 100}%`,
+              marginTop: -10,
+            }}
+          >
+            <div className="font-semibold tabular-nums">{formatPrice(active.point.price, currency)}</div>
+            <div className="text-white/70">{shortDate(active.point.checkedAt)}</div>
+          </div>
         )}
-      </svg>
+      </div>
 
       <div className="flex items-center justify-between text-caption text-ink-muted">
         <span>{visible[0] && shortDate(visible[0].checkedAt)}</span>

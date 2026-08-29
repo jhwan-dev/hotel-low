@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import Link from "next/link";
 import { BellIcon } from "@/components/icons";
 import { BottomNav, Header } from "@/components/layout";
+import { Button } from "@/components/ui";
+import { signOut } from "@/lib/auth/actions";
+import { getCurrentUser } from "@/lib/auth/getCurrentUser";
 import "./globals.css";
 
 const inter = Inter({
@@ -18,11 +22,31 @@ export const metadata: Metadata = {
     "여행 날짜와 호텔을 선택하면 가격을 지속적으로 추적하고, 가격이 내려갔을 때 알려드립니다.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const user = await getCurrentUser();
+  const isSignedIn = Boolean(user && !user.isMock);
+
   return (
     <html lang="ko" className={`${inter.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col bg-background font-sans text-foreground">
-        <Header rightSlot={<BellIcon className="text-ink" />} />
+        <Header
+          rightSlot={
+            <>
+              <BellIcon className="text-ink" />
+              {isSignedIn ? (
+                <form action={signOut.bind(null, "/")}>
+                  <Button type="submit" variant="ghost" size="sm" className="px-2">
+                    로그아웃
+                  </Button>
+                </form>
+              ) : (
+                <Link href="/login" className="text-small font-semibold text-primary">
+                  로그인
+                </Link>
+              )}
+            </>
+          }
+        />
         <main className="flex-1 pb-20 md:pb-8">{children}</main>
         <BottomNav />
       </body>

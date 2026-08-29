@@ -23,6 +23,8 @@ export interface HotelCatalogEntry {
 export interface HotelCatalog {
   findByDestination(destination: string): HotelCatalogEntry[];
   findByAppHotelId(appHotelId: string): HotelCatalogEntry | null;
+  /** Reverse lookup — Supabase's `hotels` row only stores the provider's numeric id, so listing a user's tracked hotels needs this to get back to our own app id. */
+  findByAgodaHotelId(agodaHotelId: number): HotelCatalogEntry | null;
   /** Every cataloged hotel — home-page curation (e.g. "recent price drops") scans this rather than one destination. */
   listAll(): HotelCatalogEntry[];
 }
@@ -57,6 +59,11 @@ export class MockHotelCatalog implements HotelCatalog {
 
   findByAppHotelId(appHotelId: string): HotelCatalogEntry | null {
     const mock = mockHotels.find((h) => h.id === appHotelId);
+    return mock ? toEntry(mock) : null;
+  }
+
+  findByAgodaHotelId(agodaHotelId: number): HotelCatalogEntry | null {
+    const mock = mockHotels.find((h) => h.agodaHotelId === agodaHotelId);
     return mock ? toEntry(mock) : null;
   }
 

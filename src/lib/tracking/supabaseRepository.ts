@@ -4,13 +4,12 @@ import type { HotelCatalog } from "@/lib/hotels/catalog";
 import { hotelProvider } from "@/lib/hotels";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { ensureHotelRow, findHotelRowId } from "@/lib/supabase/hotelsTable";
+import { ensureHotelRow, findHotelRowId, getHotelProviderRef } from "@/lib/supabase/hotelsTable";
 import type { Currency } from "@/types/hotel";
 import type { PriceTrackingSettings } from "@/types/tracking";
 import type { TrackedHotelsRepository, TrackingInput } from "./repository";
 
 interface TrackedHotelRow {
-  id: string;
   check_in: string;
   check_out: string;
   currency: string;
@@ -70,6 +69,28 @@ export class SupabaseTrackedHotelsRepository implements TrackedHotelsRepository 
       .maybeSingle();
     if (error) throw error;
     return data ? toSettings(data, hotelId) : null;
+  }
+
+  async listActive(userId: string): Promise<PriceTrackingSettings[]> {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("tracked_hotels")
+      .select("hotel_id, check_in, check_out, currency, target_price, notify_on_any_drop, notify_on_new_low")
+      .eq("user_id", userId)
+      .eq("is_active", true)
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    if (!data) return [];
+
+    const results: PriceTrackingSettings[] = [];
+    for (const row of data) {
+      const ref = await getHotelProviderRef(supabase, row.hotel_id);
+      if (!ref || ref.provider !== "agoda") continue;
+      const entry = this.catalog.findByAgodaHotelId(Number(ref.providerHotelId));
+      if (!entry) continue;
+      results.push(toSettings(row, entry.appHotelId));
+    }
+    return results;
   }
 
   async upsert(userId: string, input: TrackingInput): Promise<PriceTrackingSettings> {
