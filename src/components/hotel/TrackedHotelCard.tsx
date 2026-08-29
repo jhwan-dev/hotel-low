@@ -3,8 +3,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import { ArrowDownIcon, ArrowUpIcon, ClockIcon } from "@/components/icons";
-import { Button, Card, CardBody } from "@/components/ui";
+import { ClockIcon } from "@/components/icons";
+import { Button, Card, CardBody, CardRibbon, PriceChangeBadge } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { formatRelativeDays, formatShortDate } from "@/lib/date";
 import { formatPrice } from "@/lib/format";
@@ -61,6 +61,7 @@ export function TrackedHotelCard({
         className="relative w-28 shrink-0 overflow-hidden rounded-l-card sm:w-36"
       >
         <Image src={hotel.images[0]} alt={hotel.name} fill sizes="144px" className="object-cover" />
+        <CardRibbon label="추적 중" tone="tracking" />
       </Link>
       <CardBody className="flex-1 gap-1.5 p-3">
         <Link href={detailHref}>
@@ -71,24 +72,17 @@ export function TrackedHotelCard({
         </p>
 
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 pt-0.5">
-          <span className="text-price-sm tabular-nums text-ink">
+          <span className="text-price-md tabular-nums text-ink">
             {formatPrice(price.totalPrice, price.currency)}
           </span>
           {changePercent !== null && changePercent !== 0 && (
-            <span
-              className={cn(
-                "inline-flex items-center gap-0.5 text-caption font-bold tabular-nums",
-                isDrop ? "text-price-down" : "text-price-up",
-              )}
-            >
-              {isDrop ? <ArrowDownIcon width={12} height={12} /> : <ArrowUpIcon width={12} height={12} />}
-              {Math.abs(changePercent)}%
-            </span>
+            <PriceChangeBadge trend={isDrop ? "down" : "up"} percent={Math.abs(changePercent)} />
           )}
         </div>
-        {previousTotalPrice !== null && (
-          <p className="text-caption text-ink-muted line-through decoration-ink-muted/50">
-            {formatPrice(previousTotalPrice, price.currency)}
+        {previousTotalPrice !== null && changePercent !== null && changePercent !== 0 && (
+          <p className={cn("text-caption font-semibold", isDrop ? "text-price-down" : "text-price-up")}>
+            {formatPrice(Math.abs(previousTotalPrice - price.totalPrice), price.currency)}{" "}
+            {isDrop ? "하락" : "상승"}
           </p>
         )}
 

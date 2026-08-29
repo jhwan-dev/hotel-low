@@ -17,10 +17,9 @@ export interface TrackedDashboardItem {
 }
 
 /**
- * Like resolveTrackedResults, but also pulls 30-day price history so the "내
- * 호텔" dashboard can show a previous price, change %, and price status per
- * card. That's an extra fetch per tracked hotel, so kept separate from the
- * lighter resolveTrackedResults the home page uses.
+ * Resolves each tracked stay's current listing plus 30-day price history, so
+ * both the home screen and /tracking can show a previous price, change %,
+ * and price status per card.
  */
 export async function resolveTrackingDashboard(
   list: PriceTrackingSettings[],

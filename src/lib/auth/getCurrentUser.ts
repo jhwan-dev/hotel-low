@@ -10,7 +10,8 @@ export interface CurrentUser {
   isMock: boolean;
 }
 
-const MOCK_USER: CurrentUser = { id: "mock-user", email: "mock@hotelow.dev", isMock: true };
+export const MOCK_USER_ID = "mock-user";
+const MOCK_USER: CurrentUser = { id: MOCK_USER_ID, email: "mock@hotelow.dev", isMock: true };
 
 /**
  * The one place that answers "who's using the app right now". Before

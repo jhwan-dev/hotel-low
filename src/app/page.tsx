@@ -1,14 +1,14 @@
-import Link from "next/link";
 import type { Metadata } from "next";
-import { BellIcon } from "@/components/icons";
+import Link from "next/link";
 import { Container } from "@/components/layout";
 import { HomeSearchBar } from "@/components/search";
 import { PriceDropCard, LowAvailabilityCard, HotelDealCard } from "@/components/hotel";
+import { PriceChangeBadge } from "@/components/ui";
 import { PopularDestinations } from "@/components/home/PopularDestinations";
 import { getRecentPriceDrops } from "@/lib/hotels/recent-drops";
 import { getLowAvailabilityHotels } from "@/lib/hotels/low-availability";
 import { getMyTrackedHotels } from "@/lib/tracking/queries";
-import { resolveTrackedResults } from "@/lib/tracking/resolveTrackedResults";
+import { resolveTrackingDashboard } from "@/lib/tracking/resolveTrackingDashboard";
 import { formatPrice } from "@/lib/format";
 
 // All three curated sections are computed relative to today (or read the
@@ -28,7 +28,7 @@ export default async function Home() {
     getRecentPriceDrops(4),
     getLowAvailabilityHotels(4),
   ]);
-  const tracked = await resolveTrackedResults(trackedList);
+  const tracked = await resolveTrackingDashboard(trackedList);
 
   return (
     <Container className="flex flex-col gap-8 py-6">
@@ -59,23 +59,36 @@ export default async function Home() {
           )}
         </div>
         {tracked.length > 0 ? (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {tracked.map(({ settings, result }) => (
-              <HotelDealCard
-                key={`${settings.hotelId}-${settings.checkIn}-${settings.checkOut}`}
-                hotel={result.hotel}
-                price={result.price}
-                trailing={
-                  <span
-                    title={`${formatPrice(settings.targetPrice, settings.currency)} 이하가 되면 알려드려요`}
-                    className="inline-flex items-center gap-0.5 whitespace-nowrap text-small font-bold text-primary"
-                  >
-                    <BellIcon width={12} height={12} />
-                    추적 중
-                  </span>
-                }
-              />
-            ))}
+          <div className="grid grid-cols-2 gap-3">
+            {tracked.map(({ settings, result, changePercent, previousTotalPrice }) => {
+              const isDrop = changePercent !== null && changePercent < 0;
+              const amountChanged =
+                previousTotalPrice !== null
+                  ? Math.abs(previousTotalPrice - result.price.totalPrice)
+                  : null;
+              return (
+                <HotelDealCard
+                  key={`${settings.hotelId}-${settings.checkIn}-${settings.checkOut}`}
+                  hotel={result.hotel}
+                  price={result.price}
+                  ribbon={{ label: "추적 중", tone: "tracking" }}
+                  trailing={
+                    changePercent !== null && changePercent !== 0 ? (
+                      <PriceChangeBadge trend={isDrop ? "down" : "up"} percent={Math.abs(changePercent)} />
+                    ) : null
+                  }
+                  secondaryLine={
+                    amountChanged !== null && amountChanged !== 0 ? (
+                      <p
+                        className={`text-caption font-semibold ${isDrop ? "text-price-down" : "text-price-up"}`}
+                      >
+                        {formatPrice(amountChanged, result.price.currency)} {isDrop ? "하락" : "상승"}
+                      </p>
+                    ) : null
+                  }
+                />
+              );
+            })}
           </div>
         ) : (
           <div className="rounded-card border border-dashed border-border p-6 text-center text-small text-ink-muted">

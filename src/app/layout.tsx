@@ -6,6 +6,7 @@ import { BottomNav, Header } from "@/components/layout";
 import { Button } from "@/components/ui";
 import { signOut } from "@/lib/auth/actions";
 import { getCurrentUser } from "@/lib/auth/getCurrentUser";
+import { notificationService } from "@/lib/notifications";
 import "./globals.css";
 
 const inter = Inter({
@@ -25,6 +26,7 @@ export const metadata: Metadata = {
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   const user = await getCurrentUser();
   const isSignedIn = Boolean(user && !user.isMock);
+  const unreadCount = user ? await notificationService.countUnread(user.id) : 0;
 
   return (
     <html lang="ko" className={`${inter.variable} h-full antialiased`}>
@@ -32,7 +34,14 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         <Header
           rightSlot={
             <>
-              <BellIcon className="text-ink" />
+              <Link href="/alerts" className="relative text-ink">
+                <BellIcon />
+                {unreadCount > 0 && (
+                  <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-price-up px-1 text-[0.625rem] font-bold leading-none text-white">
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
+                )}
+              </Link>
               {isSignedIn ? (
                 <form action={signOut.bind(null, "/")}>
                   <Button type="submit" variant="ghost" size="sm" className="px-2">
