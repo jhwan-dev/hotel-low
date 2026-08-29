@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Button, Input } from "@/components/ui";
+import { Button, Input, OtpInput } from "@/components/ui";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/client";
 
@@ -14,14 +14,16 @@ export interface EmailMagicLinkFormProps {
 
 type Step = "trigger" | "email" | "code";
 
+const CODE_LENGTH = 6;
+
 /**
- * Passwordless email login. Sends both a clickable link and a 6-digit code:
- * the link only completes sign-in in whichever browser/app opens it, which
- * is very often *not* the browser the user is actually sitting in (e.g. it
- * opens in the mail app's in-app browser, or a different app entirely on
- * mobile) — each keeps its own separate cookies, so that tab shows signed
- * in and the one the user started from doesn't. Typing the code back in
- * here instead completes sign-in in this exact tab, with no hand-off.
+ * Passwordless email login via a 6-digit code — no clickable link. A link
+ * only completes sign-in in whichever browser/app opens it, which is very
+ * often *not* the browser the user is actually sitting in (a mail app's
+ * in-app browser, a different device) — each keeps its own separate
+ * cookies, and some in-app browsers fail to load the page at all. Typing
+ * the code back in here instead completes sign-in in this exact tab, with
+ * no navigation or hand-off involved.
  */
 export function EmailMagicLinkForm({ next = "/" }: EmailMagicLinkFormProps) {
   const router = useRouter();
@@ -32,23 +34,15 @@ export function EmailMagicLinkForm({ next = "/" }: EmailMagicLinkFormProps) {
   const [error, setError] = useState<string | null>(null);
   const configured = isSupabaseConfigured();
 
-  async function handleSendLink(event: FormEvent) {
+  async function handleSendCode(event: FormEvent) {
     event.preventDefault();
     setPending(true);
     setError(null);
     const supabase = createClient();
-    // Just the final destination — the Magic Link email template embeds this
-    // as {{ .RedirectTo }} in a link to /auth/confirm, which verifies the
-    // OTP token itself (see that route for why, vs. /auth/callback's PKCE
-    // code exchange used for Kakao).
-    const redirectTo = `${window.location.origin}${next}`;
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: redirectTo },
-    });
+    const { error } = await supabase.auth.signInWithOtp({ email });
     setPending(false);
     if (error) {
-      setError("로그인 링크를 보내지 못했어요. 잠시 후 다시 시도해주세요.");
+      setError("코드를 보내지 못했어요. 잠시 후 다시 시도해주세요.");
       return;
     }
     setStep("code");
@@ -73,24 +67,20 @@ export function EmailMagicLinkForm({ next = "/" }: EmailMagicLinkFormProps) {
     return (
       <div className="flex w-full flex-col gap-3">
         <p className="rounded-control bg-surface-muted p-4 text-center text-small text-ink-muted">
-          <span className="font-semibold text-ink">{email}</span>로 로그인 링크와 6자리 코드를
-          보냈어요.
+          <span className="font-semibold text-ink">{email}</span>로 인증 코드를 보냈어요.
           <br />
-          메일함에서 링크를 눌러도 되고, 지금 이 화면에서 코드를 입력해도 로그인할 수 있어요.
+          메일함에서 받은 {CODE_LENGTH}자리 코드를 입력해주세요.
         </p>
         <form onSubmit={handleVerifyCode} className="flex w-full flex-col gap-3">
-          <Input
-            type="text"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            autoFocus
-            placeholder="6자리 코드"
+          <OtpInput
+            length={CODE_LENGTH}
             value={code}
-            onChange={(event) => setCode(event.target.value)}
+            onChange={setCode}
+            autoFocus
             disabled={isPending}
             errorText={error ?? undefined}
           />
-          <Button type="submit" disabled={isPending || code.length < 6} fullWidth>
+          <Button type="submit" disabled={isPending || code.length < CODE_LENGTH} fullWidth>
             {isPending ? "확인 중..." : "코드로 로그인"}
           </Button>
           <button
@@ -125,7 +115,7 @@ export function EmailMagicLinkForm({ next = "/" }: EmailMagicLinkFormProps) {
   }
 
   return (
-    <form onSubmit={handleSendLink} className="flex w-full flex-col gap-3">
+    <form onSubmit={handleSendCode} className="flex w-full flex-col gap-3">
       <Input
         type="email"
         required
@@ -137,7 +127,7 @@ export function EmailMagicLinkForm({ next = "/" }: EmailMagicLinkFormProps) {
         errorText={error ?? undefined}
       />
       <Button type="submit" disabled={!configured || isPending} fullWidth>
-        {isPending ? "전송 중..." : "이메일로 로그인 링크 받기"}
+        {isPending ? "전송 중..." : "인증 코드 받기"}
       </Button>
       <button
         type="button"

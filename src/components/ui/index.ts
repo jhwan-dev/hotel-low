@@ -9,3 +9,4 @@ export * from "./Badge";
 export * from "./PriceChangeIndicator";
 export * from "./CardRibbon";
 export * from "./PriceChangeBadge";
+export * from "./OtpInput";
