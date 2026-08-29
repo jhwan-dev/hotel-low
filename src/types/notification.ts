@@ -10,6 +10,10 @@ export interface PriceNotification {
   id: string;
   userId: string;
   trackedHotelId: string;
+  /** App catalog hotel id + stay — lets the UI link straight to /hotels/[id]. */
+  hotelId: string;
+  checkIn: string;
+  checkOut: string;
   type: NotificationType;
   previousPrice: number | null;
   currentPrice: number;
@@ -25,6 +29,9 @@ export interface PriceNotification {
 export interface NewPriceNotification {
   userId: string;
   trackedHotelId: string;
+  hotelId: string;
+  checkIn: string;
+  checkOut: string;
   type: NotificationType;
   previousPrice: number | null;
   currentPrice: number;

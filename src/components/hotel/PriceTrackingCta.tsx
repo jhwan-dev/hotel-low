@@ -131,6 +131,7 @@ export function PriceTrackingCta({
         currency={currency}
         initial={settings ?? undefined}
         onSubmit={submit}
+        submitLabel={settings ? "설정 저장" : "가격 추적 시작"}
       />
 
       <LoginPromptSheet

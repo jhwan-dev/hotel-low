@@ -10,3 +10,10 @@ export async function markNotificationRead(id: string): Promise<{ ok: true } | {
   await notificationService.markAsRead(id, user.id);
   return { ok: true };
 }
+
+export async function markAllNotificationsRead() {
+  const user = await getCurrentUser();
+  if (!user) return;
+
+  await notificationService.markAllAsRead(user.id);
+}

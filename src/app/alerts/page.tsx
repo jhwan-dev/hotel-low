@@ -8,6 +8,7 @@ import { signOut } from "@/lib/auth/actions";
 import { isKakaoLoginEnabled } from "@/lib/auth/featureFlags";
 import { getCurrentUser } from "@/lib/auth/getCurrentUser";
 import { notificationService } from "@/lib/notifications";
+import { markAllNotificationsRead } from "@/lib/notifications/actions";
 
 export const metadata: Metadata = {
   title: "알림",
@@ -41,18 +42,28 @@ export default async function AlertsPage() {
   }
 
   const notifications = await notificationService.listForUser(user.id);
+  const hasUnread = notifications.some((n) => n.status === "unread");
 
   return (
     <Container className="flex flex-col gap-5 py-6">
       <div className="flex items-center justify-between">
         <h1 className="text-h1 text-ink">알림</h1>
-        {!user.isMock && (
-          <form action={signOut.bind(null, "/")}>
-            <Button type="submit" variant="ghost" size="sm">
-              로그아웃
-            </Button>
-          </form>
-        )}
+        <div className="flex items-center gap-1">
+          {hasUnread && (
+            <form action={markAllNotificationsRead}>
+              <Button type="submit" variant="ghost" size="sm">
+                전체 읽음
+              </Button>
+            </form>
+          )}
+          {!user.isMock && (
+            <form action={signOut.bind(null, "/")}>
+              <Button type="submit" variant="ghost" size="sm">
+                로그아웃
+              </Button>
+            </form>
+          )}
+        </div>
       </div>
 
       {notifications.length === 0 ? (

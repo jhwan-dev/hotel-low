@@ -36,6 +36,12 @@ export class MockNotificationRepository implements NotificationRepository {
     if (row) row.status = "read";
   }
 
+  async markAllAsRead(userId: string): Promise<void> {
+    for (const row of this.rows) {
+      if (row.userId === userId) row.status = "read";
+    }
+  }
+
   async countUnread(userId: string): Promise<number> {
     return this.rows.filter((r) => r.userId === userId && r.status === "unread").length;
   }

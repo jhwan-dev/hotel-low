@@ -83,6 +83,9 @@ export async function checkPriceAlerts(): Promise<PriceCheckSummary> {
       await notificationService.notify({
         userId: item.userId,
         trackedHotelId: item.trackedHotelId,
+        hotelId: item.hotelId,
+        checkIn: item.checkIn,
+        checkOut: item.checkOut,
         type: event.type,
         previousPrice: previousPoint?.price ?? null,
         currentPrice: result.price.nightlyPrice,

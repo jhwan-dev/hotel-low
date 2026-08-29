@@ -13,6 +13,8 @@ export interface NotificationRepository {
 
   markAsRead(id: string, userId: string): Promise<void>;
 
+  markAllAsRead(userId: string): Promise<void>;
+
   countUnread(userId: string): Promise<number>;
 
   /**

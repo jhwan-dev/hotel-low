@@ -19,6 +19,7 @@ export interface NotificationService {
 
   listForUser(userId: string): Promise<PriceNotification[]>;
   markAsRead(id: string, userId: string): Promise<void>;
+  markAllAsRead(userId: string): Promise<void>;
   countUnread(userId: string): Promise<number>;
 }
 
@@ -35,6 +36,10 @@ export class InAppNotificationService implements NotificationService {
 
   async markAsRead(id: string, userId: string): Promise<void> {
     return this.repo.markAsRead(id, userId);
+  }
+
+  async markAllAsRead(userId: string): Promise<void> {
+    return this.repo.markAllAsRead(userId);
   }
 
   async countUnread(userId: string): Promise<number> {

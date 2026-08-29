@@ -24,6 +24,7 @@ export interface PriceTrackingSheetProps {
   currentPrice: number;
   currency: Currency;
   initial?: Partial<TrackingFormValues>;
+  submitLabel?: string;
 }
 
 const PRESET_DROPS = [5, 10, 15];
@@ -44,6 +45,7 @@ export function PriceTrackingSheet({
   currentPrice,
   currency,
   initial,
+  submitLabel = "가격 추적 시작",
 }: PriceTrackingSheetProps) {
   const [targetPrice, setTargetPrice] = useState(
     initial?.targetPrice ?? defaultTarget(currentPrice),
@@ -153,7 +155,7 @@ export function PriceTrackingSheet({
           disabled={!isValid}
           onClick={() => onSubmit({ targetPrice, notifyOnAnyDrop, notifyOnNewLow })}
         >
-          가격 추적 시작
+          {submitLabel}
         </Button>
       </div>
     </BottomSheet>

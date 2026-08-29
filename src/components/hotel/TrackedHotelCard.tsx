@@ -9,9 +9,10 @@ import { cn } from "@/lib/cn";
 import { formatRelativeDays, formatShortDate } from "@/lib/date";
 import { formatPrice } from "@/lib/format";
 import type { PriceStatus } from "@/lib/hotels/price-history";
-import { stopTracking } from "@/lib/tracking/actions";
+import { startTracking, stopTracking } from "@/lib/tracking/actions";
 import type { Hotel, RoomPrice } from "@/types/hotel";
 import type { PriceTrackingSettings } from "@/types/tracking";
+import { PriceTrackingSheet } from "./PriceTrackingSheet";
 
 export interface TrackedHotelCardProps {
   hotel: Hotel;
@@ -40,13 +41,33 @@ export function TrackedHotelCard({
 }: TrackedHotelCardProps) {
   const [isPending, startTransition] = useTransition();
   const [stopped, setStopped] = useState(false);
-  const detailHref = `/hotels/${hotel.id}?checkIn=${settings.checkIn}&checkOut=${settings.checkOut}`;
+  const [currentSettings, setCurrentSettings] = useState(settings);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const detailHref = `/hotels/${hotel.id}?checkIn=${currentSettings.checkIn}&checkOut=${currentSettings.checkOut}`;
   const isDrop = changePercent !== null && changePercent < 0;
 
   function stop() {
     startTransition(async () => {
-      const result = await stopTracking(hotel.id, settings.checkIn, settings.checkOut);
+      const result = await stopTracking(hotel.id, currentSettings.checkIn, currentSettings.checkOut);
       if (!("error" in result)) setStopped(true);
+    });
+  }
+
+  function submitSettings(
+    values: Pick<PriceTrackingSettings, "targetPrice" | "notifyOnAnyDrop" | "notifyOnNewLow">,
+  ) {
+    startTransition(async () => {
+      const result = await startTracking({
+        hotelId: hotel.id,
+        checkIn: currentSettings.checkIn,
+        checkOut: currentSettings.checkOut,
+        currency: currentSettings.currency,
+        ...values,
+      });
+      if (!("error" in result)) {
+        setCurrentSettings(result);
+        setSheetOpen(false);
+      }
     });
   }
 
@@ -68,7 +89,7 @@ export function TrackedHotelCard({
           <h3 className="truncate text-small font-semibold text-ink">{hotel.name}</h3>
         </Link>
         <p className="text-caption text-ink-muted">
-          {formatShortDate(settings.checkIn)} - {formatShortDate(settings.checkOut)}
+          {formatShortDate(currentSettings.checkIn)} - {formatShortDate(currentSettings.checkOut)}
         </p>
 
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 pt-0.5">
@@ -106,17 +127,43 @@ export function TrackedHotelCard({
           ) : (
             <span />
           )}
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={isPending}
-            onClick={stop}
-            className="h-7 px-2 text-caption"
-          >
-            추적 중지
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={isPending}
+              onClick={() => setSheetOpen(true)}
+              className="h-7 px-2 text-caption"
+            >
+              알림 설정
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={isPending}
+              onClick={stop}
+              className="h-7 px-2 text-caption"
+            >
+              추적 중지
+            </Button>
+          </div>
         </div>
       </CardBody>
+
+      <PriceTrackingSheet
+        open={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        hotelName={hotel.name}
+        location={`${hotel.location.city}, ${hotel.location.country}`}
+        checkIn={currentSettings.checkIn}
+        checkOut={currentSettings.checkOut}
+        nights={price.nights}
+        currentPrice={price.totalPrice}
+        currency={price.currency}
+        initial={currentSettings}
+        onSubmit={submitSettings}
+        submitLabel="설정 저장"
+      />
     </Card>
   );
 }

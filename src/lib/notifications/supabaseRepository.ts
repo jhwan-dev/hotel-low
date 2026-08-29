@@ -15,6 +15,9 @@ interface PriceAlertRow {
   id: string;
   user_id: string;
   tracked_hotel_id: string;
+  hotel_id: string | null;
+  check_in: string | null;
+  check_out: string | null;
   alert_type: NotificationType;
   previous_price: number | string | null;
   current_price: number | string;
@@ -34,6 +37,9 @@ function toNotification(row: PriceAlertRow): PriceNotification {
     id: row.id,
     userId: row.user_id,
     trackedHotelId: row.tracked_hotel_id,
+    hotelId: row.hotel_id ?? "",
+    checkIn: row.check_in ?? "",
+    checkOut: row.check_out ?? "",
     type: row.alert_type,
     previousPrice: row.previous_price === null ? null : Number(row.previous_price),
     currentPrice: Number(row.current_price),
@@ -46,7 +52,7 @@ function toNotification(row: PriceAlertRow): PriceNotification {
 }
 
 const SELECT_COLUMNS =
-  "id, user_id, tracked_hotel_id, alert_type, previous_price, current_price, price_difference, currency, message, is_read, sent_at";
+  "id, user_id, tracked_hotel_id, hotel_id, check_in, check_out, alert_type, previous_price, current_price, price_difference, currency, message, is_read, sent_at";
 
 /**
  * Reads go through the session client — RLS ("users can view/update own
@@ -64,6 +70,9 @@ export class SupabaseNotificationRepository implements NotificationRepository {
       .insert({
         user_id: input.userId,
         tracked_hotel_id: input.trackedHotelId,
+        hotel_id: input.hotelId,
+        check_in: input.checkIn,
+        check_out: input.checkOut,
         alert_type: input.type,
         previous_price: input.previousPrice,
         current_price: input.currentPrice,
@@ -94,6 +103,16 @@ export class SupabaseNotificationRepository implements NotificationRepository {
       .update({ is_read: true })
       .eq("id", id)
       .eq("user_id", userId);
+    if (error) throw error;
+  }
+
+  async markAllAsRead(userId: string): Promise<void> {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("price_alerts")
+      .update({ is_read: true })
+      .eq("user_id", userId)
+      .eq("is_read", false);
     if (error) throw error;
   }
 
