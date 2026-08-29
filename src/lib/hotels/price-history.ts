@@ -37,6 +37,13 @@ export interface PriceStatus {
   trend: PriceStatusTrend;
 }
 
+/** Shared color mapping for a PriceStatus trend — same tokens as Badge's priceDown/priceUp/neutral variants, kept here so every status pill (hotel detail, tracking dashboard) stays in sync. */
+export const priceStatusToneClasses: Record<PriceStatusTrend, string> = {
+  down: "bg-price-down-bg text-price-down",
+  up: "bg-price-up-bg text-price-up",
+  neutral: "bg-price-neutral-bg text-price-neutral",
+};
+
 /**
  * Compares a stay's total price against its own most recent prior check and
  * the trailing 30-day range — all three figures (current, previous,

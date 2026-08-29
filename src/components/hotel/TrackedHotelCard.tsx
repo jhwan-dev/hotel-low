@@ -8,7 +8,7 @@ import { Button, Card, CardBody, CardRibbon, PriceChangeBadge } from "@/componen
 import { cn } from "@/lib/cn";
 import { formatRelativeDays, formatShortDate } from "@/lib/date";
 import { formatPrice } from "@/lib/format";
-import type { PriceStatus } from "@/lib/hotels/price-history";
+import { priceStatusToneClasses, type PriceStatus } from "@/lib/hotels/price-history";
 import { stayQueryToSearchParams } from "@/lib/search/stay-query";
 import { startTracking, stopTracking } from "@/lib/tracking/actions";
 import type { Hotel, RoomPrice } from "@/types/hotel";
@@ -24,12 +24,6 @@ export interface TrackedHotelCardProps {
   status: PriceStatus | null;
   lastCheckedAt: string | null;
 }
-
-const statusStyles: Record<PriceStatus["trend"], string> = {
-  down: "bg-price-down-bg text-price-down",
-  up: "bg-price-up-bg text-price-up",
-  neutral: "bg-price-neutral-bg text-price-neutral",
-};
 
 export function TrackedHotelCard({
   hotel,
@@ -122,7 +116,7 @@ export function TrackedHotelCard({
           <span
             className={cn(
               "inline-flex w-fit items-center rounded-control px-2 py-1 text-caption font-semibold",
-              statusStyles[status.trend],
+              priceStatusToneClasses[status.trend],
             )}
           >
             {status.message}
@@ -141,20 +135,13 @@ export function TrackedHotelCard({
           <div className="flex items-center gap-1">
             <Button
               variant="ghost"
-              size="sm"
+              size="xs"
               disabled={isPending}
               onClick={() => setSheetOpen(true)}
-              className="h-7 px-2 text-caption"
             >
               알림 설정
             </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={isPending}
-              onClick={stop}
-              className="h-7 px-2 text-caption"
-            >
+            <Button variant="ghost" size="xs" disabled={isPending} onClick={stop}>
               추적 중지
             </Button>
           </div>

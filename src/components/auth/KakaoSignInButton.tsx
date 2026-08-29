@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/client";
-import { cn } from "@/lib/cn";
+import { Button } from "@/components/ui";
 import { KakaoIcon } from "./KakaoIcon";
 
 export interface KakaoSignInButtonProps {
@@ -31,19 +31,16 @@ export function KakaoSignInButton({ next = "/", className, fullWidth }: KakaoSig
   }
 
   return (
-    <button
+    <Button
       type="button"
+      variant="kakao"
       disabled={!configured || isPending}
       onClick={handleClick}
-      className={cn(
-        "flex h-12 w-full items-center justify-center gap-2.5 rounded-control bg-[#FEE500] text-body font-semibold text-[#191919] transition-opacity",
-        "hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50",
-        fullWidth ? "w-full" : "w-auto px-6",
-        className,
-      )}
+      fullWidth={fullWidth}
+      className={className}
     >
       <KakaoIcon />
       {isPending ? "이동 중..." : "카카오로 계속하기"}
-    </button>
+    </Button>
   );
 }

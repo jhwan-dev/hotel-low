@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { EmailMagicLinkForm } from "@/components/auth/EmailMagicLinkForm";
 import { KakaoSignInButton } from "@/components/auth/KakaoSignInButton";
+import { OrDivider } from "@/components/auth/OrDivider";
 import { Container } from "@/components/layout";
 import { Button, LinkButton } from "@/components/ui";
 import { TrackedHotelCard } from "@/components/hotel";
@@ -31,11 +32,7 @@ export default async function TrackingPage() {
           {isKakaoLoginEnabled() && (
             <>
               <KakaoSignInButton next="/tracking" fullWidth />
-              <div className="flex w-full items-center gap-3 text-caption text-ink-muted">
-                <span className="h-px flex-1 bg-border" />
-                또는
-                <span className="h-px flex-1 bg-border" />
-              </div>
+              <OrDivider />
             </>
           )}
           <EmailMagicLinkForm next="/tracking" />

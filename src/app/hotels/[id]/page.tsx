@@ -8,7 +8,7 @@ import { Badge, LinkButton } from "@/components/ui";
 import { PriceHistoryChart, PriceTrackingCta, StayConditionsBar } from "@/components/hotel";
 import { getCurrentUser } from "@/lib/auth/getCurrentUser";
 import { hotelProvider } from "@/lib/hotels";
-import { computePriceStatus, toTotalPoints } from "@/lib/hotels/price-history";
+import { computePriceStatus, priceStatusToneClasses, toTotalPoints } from "@/lib/hotels/price-history";
 import { getMyTrackingStatus } from "@/lib/tracking/queries";
 import {
   firstParam,
@@ -33,12 +33,6 @@ export async function generateMetadata(
     description: result.hotel.description,
   };
 }
-
-const statusStyles = {
-  down: "bg-price-down-bg text-price-down",
-  up: "bg-price-up-bg text-price-up",
-  neutral: "bg-price-neutral-bg text-price-neutral",
-};
 
 export default async function HotelDetailPage(props: PageProps<"/hotels/[id]">) {
   const { id } = await props.params;
@@ -137,7 +131,7 @@ export default async function HotelDetailPage(props: PageProps<"/hotels/[id]">) 
         <div
           className={cn(
             "flex items-center gap-1.5 rounded-control px-3 py-2 text-small font-semibold",
-            statusStyles[status.trend],
+            priceStatusToneClasses[status.trend],
           )}
         >
           {status.trend === "down" && <ArrowDownIcon width={16} height={16} />}

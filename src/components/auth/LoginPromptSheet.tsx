@@ -3,6 +3,7 @@ import { BottomSheet } from "@/components/ui";
 import { isKakaoLoginEnabled } from "@/lib/auth/featureFlags";
 import { EmailMagicLinkForm } from "./EmailMagicLinkForm";
 import { KakaoSignInButton } from "./KakaoSignInButton";
+import { OrDivider } from "./OrDivider";
 
 export interface LoginPromptSheetProps {
   open: boolean;
@@ -28,11 +29,7 @@ export function LoginPromptSheet({ open, onClose, next }: LoginPromptSheetProps)
         {isKakaoLoginEnabled() && (
           <>
             <KakaoSignInButton next={next} fullWidth />
-            <div className="flex w-full items-center gap-3 text-caption text-ink-muted">
-              <span className="h-px flex-1 bg-border" />
-              또는
-              <span className="h-px flex-1 bg-border" />
-            </div>
+            <OrDivider />
           </>
         )}
         <EmailMagicLinkForm next={next} />

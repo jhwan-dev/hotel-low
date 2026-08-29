@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { EmailMagicLinkForm } from "@/components/auth/EmailMagicLinkForm";
 import { KakaoSignInButton } from "@/components/auth/KakaoSignInButton";
+import { OrDivider } from "@/components/auth/OrDivider";
 import { Container } from "@/components/layout";
 import { isKakaoLoginEnabled } from "@/lib/auth/featureFlags";
 import { getCurrentUser } from "@/lib/auth/getCurrentUser";
@@ -41,11 +42,7 @@ export default async function LoginPage(props: PageProps<"/login">) {
             {isKakaoLoginEnabled() && (
               <>
                 <KakaoSignInButton next={next} fullWidth />
-                <div className="flex w-full items-center gap-3 text-caption text-ink-muted">
-                  <span className="h-px flex-1 bg-border" />
-                  또는
-                  <span className="h-px flex-1 bg-border" />
-                </div>
+                <OrDivider />
               </>
             )}
             <EmailMagicLinkForm next={next} />
