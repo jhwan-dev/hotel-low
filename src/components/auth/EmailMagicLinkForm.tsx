@@ -13,6 +13,7 @@ export interface EmailMagicLinkFormProps {
 
 /** Passwordless email login — sends a one-time link instead of asking for a password. */
 export function EmailMagicLinkForm({ next = "/" }: EmailMagicLinkFormProps) {
+  const [showForm, setShowForm] = useState(false);
   const [email, setEmail] = useState("");
   const [isPending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,11 +48,27 @@ export function EmailMagicLinkForm({ next = "/" }: EmailMagicLinkFormProps) {
     );
   }
 
+  if (!showForm) {
+    return (
+      <Button
+        type="button"
+        variant="outline"
+        size="lg"
+        fullWidth
+        disabled={!configured}
+        onClick={() => setShowForm(true)}
+      >
+        이메일로 로그인
+      </Button>
+    );
+  }
+
   return (
     <form onSubmit={handleSubmit} className="flex w-full flex-col gap-3">
       <Input
         type="email"
         required
+        autoFocus
         placeholder="이메일 주소"
         value={email}
         onChange={(event) => setEmail(event.target.value)}
@@ -61,6 +78,13 @@ export function EmailMagicLinkForm({ next = "/" }: EmailMagicLinkFormProps) {
       <Button type="submit" disabled={!configured || isPending} fullWidth>
         {isPending ? "전송 중..." : "이메일로 로그인 링크 받기"}
       </Button>
+      <button
+        type="button"
+        onClick={() => setShowForm(false)}
+        className="text-small font-medium text-ink-muted"
+      >
+        뒤로
+      </button>
     </form>
   );
 }
