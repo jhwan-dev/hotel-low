@@ -4,6 +4,7 @@ import { EmailMagicLinkForm } from "@/components/auth/EmailMagicLinkForm";
 import { KakaoSignInButton } from "@/components/auth/KakaoSignInButton";
 import { OrDivider } from "@/components/auth/OrDivider";
 import { Container } from "@/components/layout";
+import { LegalConsentNotice } from "@/components/legal/LegalConsentNotice";
 import { isKakaoLoginEnabled } from "@/lib/auth/featureFlags";
 import { getCurrentUser } from "@/lib/auth/getCurrentUser";
 import { safeNextPath } from "@/lib/auth/safeNextPath";
@@ -46,6 +47,7 @@ export default async function LoginPage(props: PageProps<"/login">) {
               </>
             )}
             <EmailMagicLinkForm next={next} />
+            <LegalConsentNotice />
           </>
         ) : (
           <p className="rounded-control bg-surface-muted p-4 text-center text-small text-ink-muted">
