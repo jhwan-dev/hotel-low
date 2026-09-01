@@ -35,13 +35,22 @@ export function detectPriceEvents(input: PriceEventInput): DetectedPriceEvent[] 
     events.push({ type: "price_drop", message: "가격이 내려갔어요." });
   }
 
-  if (currentTotal <= targetPrice) {
+  // Fire only on the crossing into "at or below target" — comparing
+  // currentTotal alone would re-fire every single day the price stays down
+  // there, not just the day it first arrives.
+  const wasAboveTarget = previousTotal === null || previousTotal > targetPrice;
+  if (wasAboveTarget && currentTotal <= targetPrice) {
     events.push({ type: "target_reached", message: "목표 가격 이하로 내려갔어요." });
   }
 
-  if (notifyOnNewLow && last30DaysTotal.length > 0) {
-    const { min } = priceStats(last30DaysTotal);
-    if (currentTotal <= min) {
+  // Compare against the *prior* days only (excluding today's own point) and
+  // require a strictly lower price — otherwise a price that's simply sitting
+  // flat at an already-recorded low re-triggers "new low" every day it stays
+  // there, which isn't actually a new record.
+  if (notifyOnNewLow && last30DaysTotal.length > 1) {
+    const priorDays = last30DaysTotal.slice(0, -1);
+    const { min: priorMin } = priceStats(priorDays);
+    if (currentTotal < priorMin) {
       events.push({ type: "new_low", message: "최근 30일 중 최저가를 갱신했어요." });
     }
   }
