@@ -2,10 +2,10 @@ import Image from "next/image";
 import Link from "next/link";
 
 const DESTINATIONS = [
-  { city: "서울", country: "대한민국", seed: "seoul-skyline" },
-  { city: "도쿄", country: "일본", seed: "tokyo-skyline" },
-  { city: "오사카", country: "일본", seed: "osaka-castle" },
-  { city: "방콕", country: "태국", seed: "bangkok-temple" },
+  { city: "서울", country: "대한민국", photoId: "1628308801243-9b8ee051c714" },
+  { city: "도쿄", country: "일본", photoId: "1513407030348-c983a97b98d8" },
+  { city: "오사카", country: "일본", photoId: "1575489129683-4f7d23379975" },
+  { city: "방콕", country: "태국", photoId: "1613672803979-a6edfc5a179b" },
 ];
 
 /**
@@ -23,7 +23,7 @@ export function PopularDestinations() {
           className="relative aspect-square overflow-hidden rounded-card"
         >
           <Image
-            src={`https://picsum.photos/seed/${d.seed}/400/400`}
+            src={`https://images.unsplash.com/photo-${d.photoId}?w=400&h=400&fit=crop&q=80`}
             alt={`${d.city}, ${d.country}`}
             fill
             sizes="(min-width: 640px) 25vw, 50vw"

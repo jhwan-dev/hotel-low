@@ -7,11 +7,13 @@ export interface MockHotel extends Hotel {
   agodaHotelId: number;
 }
 
-function images(seed: string, count: number): string[] {
-  return Array.from(
-    { length: count },
-    (_, i) => `https://picsum.photos/seed/${seed}-${i}/800/600`,
-  );
+/**
+ * Curated Unsplash photo ids matching each hotel's type/location — picked by
+ * hand from unsplash.com search results, not the hotel's actual photos (these
+ * hotels are fictional), so at least the mood/setting is representative.
+ */
+function images(ids: string[]): string[] {
+  return ids.map((id) => `https://images.unsplash.com/photo-${id}?w=800&h=600&fit=crop&q=80`);
 }
 
 export const mockHotels: MockHotel[] = [
@@ -22,7 +24,12 @@ export const mockHotels: MockHotel[] = [
     aliases: ["seoul", "bukchon"],
     rating: 4.8,
     reviewCount: 612,
-    images: images("seoul-hanok-stay", 4),
+    images: images([
+      "1618237586696-d3690dad22e3",
+      "1633839323577-fe4bd3079fab",
+      "1618237600880-fb9d72e98393",
+      "1661177869241-08dd2b3b8975",
+    ]),
     amenities: ["무료 와이파이", "조식 포함", "공항 셔틀"],
     description:
       "북촌 한옥마을 한가운데 위치한 전통 한옥 숙소로, 고즈넉한 분위기와 현대적인 편의시설을 함께 제공합니다.",
@@ -36,7 +43,12 @@ export const mockHotels: MockHotel[] = [
     aliases: ["seoul", "myeongdong"],
     rating: 4.5,
     reviewCount: 1284,
-    images: images("seoul-myeongdong-tower", 4),
+    images: images([
+      "1779447425044-2e25748cc77c",
+      "1780689436914-2e87323985e9",
+      "1777169794972-12095816073b",
+      "1785292446617-6dcec9c76dd5",
+    ]),
     amenities: ["무료 와이파이", "피트니스 센터", "루프탑 바"],
     description: "명동 쇼핑가 중심부, 남산타워 전망을 갖춘 비즈니스 호텔입니다.",
     basePrice: 145000,
@@ -49,7 +61,12 @@ export const mockHotels: MockHotel[] = [
     aliases: ["seoul", "gangnam"],
     rating: 4.6,
     reviewCount: 843,
-    images: images("seoul-gangnam-suite", 4),
+    images: images([
+      "1638886043487-72d203fa66b6",
+      "1758448755927-e5c5ae14790c",
+      "1772567733061-f7b44c0587b0",
+      "1776831234992-57ee0eaa9bbf",
+    ]),
     amenities: ["무료 와이파이", "주방시설", "세탁시설"],
     description: "장기 출장객을 위한 풀옵션 레지던스형 객실을 제공하는 강남 중심 호텔입니다.",
     basePrice: 210000,
@@ -62,7 +79,12 @@ export const mockHotels: MockHotel[] = [
     aliases: ["seoul", "hongdae"],
     rating: 4.2,
     reviewCount: 2031,
-    images: images("seoul-hongdae-pod", 4),
+    images: images([
+      "1550567419-f9c1a8b185ca",
+      "1669181232233-14281fc31470",
+      "1647435153672-1b5a04841607",
+      "1740047957758-24c66b4468e4",
+    ]),
     amenities: ["무료 와이파이", "24시간 프런트"],
     description: "홍대 클럽거리 도보 5분, 합리적인 가격의 캡슐형 디자인 호텔입니다.",
     basePrice: 88000,
@@ -75,7 +97,12 @@ export const mockHotels: MockHotel[] = [
     aliases: ["tokyo", "shinjuku"],
     rating: 4.7,
     reviewCount: 1590,
-    images: images("tokyo-shinjuku-view", 4),
+    images: images([
+      "1761205403631-aa60d67d180e",
+      "1739397727973-eea07b418fab",
+      "1746530137954-339eeb1c644d",
+      "1706839638674-b15b4f0576e9",
+    ]),
     amenities: ["무료 와이파이", "온천", "조식 포함"],
     description: "신주쿠 마천루 전망과 대욕장을 갖춘 도심형 호텔입니다.",
     basePrice: 168000,
@@ -88,7 +115,12 @@ export const mockHotels: MockHotel[] = [
     aliases: ["tokyo", "asakusa"],
     rating: 4.6,
     reviewCount: 731,
-    images: images("tokyo-asakusa-inn", 4),
+    images: images([
+      "1712232907812-4bd219a99a49",
+      "1610333684078-c89bd57f2e46",
+      "1698879837900-9dd9c4c2db80",
+      "1632790929202-a79cd10d9076",
+    ]),
     amenities: ["다다미 객실", "유카타 제공", "조식 포함"],
     description: "센소지 도보 3분, 전통 다다미 객실에서 일본식 환대를 경험할 수 있습니다.",
     basePrice: 132000,
@@ -101,7 +133,12 @@ export const mockHotels: MockHotel[] = [
     aliases: ["tokyo", "shibuya"],
     rating: 4.4,
     reviewCount: 2210,
-    images: images("tokyo-shibuya-cross", 4),
+    images: images([
+      "1782875574752-b8dc2ee75882",
+      "1775866914767-7e4646f2481a",
+      "1775866914882-9f0d58aa3372",
+      "1640871426525-a19540c45a39",
+    ]),
     amenities: ["무료 와이파이", "피트니스 센터"],
     description: "시부야 스크램블 교차로 바로 앞에 위치한 모던 시티 호텔입니다.",
     basePrice: 155000,
@@ -114,7 +151,12 @@ export const mockHotels: MockHotel[] = [
     aliases: ["tokyo", "ginza"],
     rating: 4.9,
     reviewCount: 964,
-    images: images("tokyo-ginza-grand", 4),
+    images: images([
+      "1777180249046-abf7d640e0d9",
+      "1776763018970-9fdf66bd4666",
+      "1776763018972-588e27bf6511",
+      "1685592437742-3b56edb46b15",
+    ]),
     amenities: ["무료 와이파이", "스파", "미쉐린 레스토랑"],
     description: "긴자 명품거리 한복판의 럭셔리 호텔로 최상급 서비스를 제공합니다.",
     basePrice: 298000,
@@ -127,7 +169,12 @@ export const mockHotels: MockHotel[] = [
     aliases: ["osaka", "dotonbori"],
     rating: 4.5,
     reviewCount: 1876,
-    images: images("osaka-dotonbori-central", 4),
+    images: images([
+      "1648129866953-cb22eec73d26",
+      "1704004363915-c4d848da44ea",
+      "1614988371365-f3beb6f1bc9c",
+      "1738703888441-2c2afcddfaf7",
+    ]),
     amenities: ["무료 와이파이", "24시간 프런트", "코인 세탁실"],
     description: "도톤보리 강변 번화가 한가운데, 관광과 쇼핑에 최적화된 위치입니다.",
     basePrice: 121000,
@@ -140,7 +187,12 @@ export const mockHotels: MockHotel[] = [
     aliases: ["osaka", "namba"],
     rating: 4.3,
     reviewCount: 998,
-    images: images("osaka-namba-park", 4),
+    images: images([
+      "1781415980730-bfcf192e38bc",
+      "1584132905271-512c958d674a",
+      "1582719478250-c89cae4dc85b",
+      "1549881567-c622c1080d78",
+    ]),
     amenities: ["무료 와이파이", "조식 포함"],
     description: "난바역 도보 4분, 오사카 조 관광에도 편리한 가성비 호텔입니다.",
     basePrice: 96000,
@@ -153,7 +205,12 @@ export const mockHotels: MockHotel[] = [
     aliases: ["osaka", "umeda"],
     rating: 4.7,
     reviewCount: 1342,
-    images: images("osaka-umeda-sky", 4),
+    images: images([
+      "1547965255-b0040206de29",
+      "1624434512895-2d1887ebfccf",
+      "1583915223588-7d88ebf23414",
+      "1609360546220-186e1387b39d",
+    ]),
     amenities: ["무료 와이파이", "스카이라운지", "피트니스 센터"],
     description: "오사카역 인근 초고층 호텔로 도시 전경을 한눈에 담을 수 있습니다.",
     basePrice: 175000,
@@ -166,7 +223,12 @@ export const mockHotels: MockHotel[] = [
     aliases: ["osaka", "shinsekai"],
     rating: 4.1,
     reviewCount: 540,
-    images: images("osaka-shinsekai-retro", 4),
+    images: images([
+      "1639678349557-ffe5bed73ce7",
+      "1689888154384-00e7f1e191f4",
+      "1517424209892-aa549b471c3b",
+      "1626894035095-813930fb3b47",
+    ]),
     amenities: ["무료 와이파이", "대욕장"],
     description: "쓰텐카쿠 인근 레트로한 감성의 소규모 부티크 호텔입니다.",
     basePrice: 79000,
@@ -179,7 +241,12 @@ export const mockHotels: MockHotel[] = [
     aliases: ["bangkok", "sukhumvit"],
     rating: 4.6,
     reviewCount: 1765,
-    images: images("bangkok-sukhumvit-suite", 4),
+    images: images([
+      "1769850069415-e0115f47d13f",
+      "1786801769576-901fc70445d9",
+      "1641321720646-61886963d8b9",
+      "1494194069000-cb794f31d82c",
+    ]),
     amenities: ["루프탑 풀", "무료 와이파이", "조식 포함"],
     description: "수쿰빗 나이트라이프와 BTS 역이 가까운 인기 지역의 스위트 호텔입니다.",
     basePrice: 92000,
@@ -192,7 +259,12 @@ export const mockHotels: MockHotel[] = [
     aliases: ["bangkok", "riverside", "chao phraya"],
     rating: 4.8,
     reviewCount: 2410,
-    images: images("bangkok-riverside-resort", 4),
+    images: images([
+      "1729606188678-c7ab16ee3ebe",
+      "1729606188713-814d1b7bf893",
+      "1729606187951-ba325b73f290",
+      "1674397722337-31a958977d45",
+    ]),
     amenities: ["강변 풀", "무료 셔틀보트", "스파"],
     description: "짜오프라야 강변에 위치한 리조트형 호텔로 셔틀보트로 왓아룬까지 이동이 편리합니다.",
     basePrice: 138000,
@@ -205,7 +277,12 @@ export const mockHotels: MockHotel[] = [
     aliases: ["bangkok", "siam"],
     rating: 4.4,
     reviewCount: 1102,
-    images: images("bangkok-siam-central", 4),
+    images: images([
+      "1646974400439-321c4a9240b9",
+      "1646974400468-9e51816f721d",
+      "1646974400433-901341048192",
+      "1768853329042-b0445ee6073c",
+    ]),
     amenities: ["무료 와이파이", "쇼핑몰 직결"],
     description: "방콕 최대 쇼핑 상권인 시암 스퀘어와 바로 연결되는 도심형 호텔입니다.",
     basePrice: 76000,
@@ -218,7 +295,12 @@ export const mockHotels: MockHotel[] = [
     aliases: ["bangkok", "silom"],
     rating: 4.0,
     reviewCount: 655,
-    images: images("bangkok-silom-budget", 4),
+    images: images([
+      "1709805619372-40de3f158e83",
+      "1555854877-bab0e564b8d5",
+      "1768289269971-6171457bed13",
+      "1643897903946-b7ddb32c4780",
+    ]),
     amenities: ["무료 와이파이", "24시간 프런트"],
     description: "실롬 비즈니스 지구에 위치한 실속형 숙소로 BTS 역과 가깝습니다.",
     basePrice: 48000,
