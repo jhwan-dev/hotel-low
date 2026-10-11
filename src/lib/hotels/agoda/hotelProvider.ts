@@ -5,6 +5,7 @@ import type {
   HotelSearchParams,
   HotelSearchResponse,
   HotelSearchResult,
+  PartySize,
   PriceHistoryRangeDays,
 } from "@/types/hotel";
 import { mapContentToHotel, mapPropertyToRoomPrice } from "./mapper";
@@ -96,7 +97,8 @@ export class AgodaHotelProvider implements HotelProvider {
     checkIn: string,
     checkOut: string,
     days: PriceHistoryRangeDays,
+    partySize?: PartySize,
   ) {
-    return this.historyRepository.getHistory(hotelId, checkIn, checkOut, days);
+    return this.historyRepository.getHistory(hotelId, checkIn, checkOut, days, partySize);
   }
 }

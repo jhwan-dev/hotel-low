@@ -22,7 +22,10 @@ export const hotelCatalog: HotelCatalog = new MockHotelCatalog();
 // Swap point 3/3: price history has no Agoda equivalent — it's our own log
 // (Supabase `hotel_price_history`). Falls back to the deterministic mock
 // generator until NEXT_PUBLIC_SUPABASE_URL / ANON_KEY are set in .env.local.
-const priceHistoryRepository: PriceHistoryRepository = isSupabaseConfigured()
+// Exported (not just wired into AgodaHotelProvider) because the price-check
+// job needs to *write* a new price point, not just read the graph through
+// HotelProvider.getPriceHistory — see src/lib/notifications/checkPriceAlerts.ts.
+export const priceHistoryRepository: PriceHistoryRepository = isSupabaseConfigured()
   ? new SupabasePriceHistoryRepository(hotelCatalog)
   : new MockPriceHistoryRepository();
 

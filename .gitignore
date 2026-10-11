@@ -34,6 +34,9 @@ yarn-error.log*
 .env*
 !.env.example
 
+# verification script output (raw third-party API responses, not for commit)
+/scripts/.output/
+
 # vercel
 .vercel
 

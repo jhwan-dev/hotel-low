@@ -47,6 +47,13 @@ export interface PricePoint {
 
 export type PriceHistoryRangeDays = 7 | 30 | 90;
 
+/** The guest/room combination a price was quoted for — hotel_price_history is scoped by this, not just (hotelId, checkIn, checkOut). */
+export interface PartySize {
+  adults: number;
+  children: number;
+  rooms: number;
+}
+
 export interface PriceHistory {
   hotelId: string;
   /** The stay this history tracks — price history is always for one fixed (checkIn, checkOut), re-quoted over time. */
@@ -90,5 +97,7 @@ export interface HotelProvider {
     checkIn: string,
     checkOut: string,
     days: PriceHistoryRangeDays,
+    /** When given, only history recorded for this exact party size is returned. Omit to keep the old, unscoped behavior (used by home-page curation, which has no particular party size). */
+    partySize?: PartySize,
   ): Promise<PriceHistory | null>;
 }
