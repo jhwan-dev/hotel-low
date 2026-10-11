@@ -44,7 +44,7 @@ export async function listAllActiveTrackedHotels(): Promise<TrackedHotelForCheck
   for (const row of data) {
     const ref = await getHotelProviderRef(admin, row.hotel_id);
     if (!ref || ref.provider !== "agoda") continue;
-    const entry = hotelCatalog.findByAgodaHotelId(Number(ref.providerHotelId));
+    const entry = hotelCatalog.findByProviderHotelId(ref.providerHotelId);
     if (!entry) continue;
 
     results.push({

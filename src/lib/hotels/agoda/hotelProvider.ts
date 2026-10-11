@@ -38,7 +38,11 @@ export class AgodaHotelProvider implements HotelProvider {
   ): Promise<HotelSearchResult[]> {
     if (entries.length === 0) return [];
 
-    const agodaHotelIds = entries.map((e) => e.agodaHotelId);
+    // AgodaRepository's wire types are specifically Agoda's own numeric hotel
+    // id — HotelCatalogEntry.providerHotelId is a generic string (so other
+    // providers' opaque ids, e.g. SerpApi's property_token, fit too), so
+    // convert back at this Agoda-specific boundary.
+    const agodaHotelIds = entries.map((e) => Number(e.providerHotelId));
     const [contents, availability] = await Promise.all([
       this.repository.getHotelContent(agodaHotelIds),
       this.repository.searchAvailability({
@@ -58,8 +62,9 @@ export class AgodaHotelProvider implements HotelProvider {
 
     const results: HotelSearchResult[] = [];
     for (const entry of entries) {
-      const content = contents.find((c) => c.hotelId === entry.agodaHotelId);
-      const property = availability.properties.find((p) => p.propertyId === entry.agodaHotelId);
+      const entryAgodaHotelId = Number(entry.providerHotelId);
+      const content = contents.find((c) => c.hotelId === entryAgodaHotelId);
+      const property = availability.properties.find((p) => p.propertyId === entryAgodaHotelId);
       if (!content || !property) continue;
 
       const price = mapPropertyToRoomPrice(

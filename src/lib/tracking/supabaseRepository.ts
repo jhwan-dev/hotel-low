@@ -54,7 +54,7 @@ export class SupabaseTrackedHotelsRepository implements TrackedHotelsRepository 
     const entry = this.catalog.findByAppHotelId(hotelId);
     if (!entry) return null;
     const supabase = await createClient();
-    return findHotelRowId(supabase, "agoda", entry.agodaHotelId);
+    return findHotelRowId(supabase, "agoda", entry.providerHotelId);
   }
 
   async findActive(
@@ -95,7 +95,7 @@ export class SupabaseTrackedHotelsRepository implements TrackedHotelsRepository 
     for (const row of data) {
       const ref = await getHotelProviderRef(supabase, row.hotel_id);
       if (!ref || ref.provider !== "agoda") continue;
-      const entry = this.catalog.findByAgodaHotelId(Number(ref.providerHotelId));
+      const entry = this.catalog.findByProviderHotelId(ref.providerHotelId);
       if (!entry) continue;
       results.push(toSettings(row, entry.appHotelId));
     }
@@ -116,7 +116,7 @@ export class SupabaseTrackedHotelsRepository implements TrackedHotelsRepository 
     const admin = createAdminClient();
     const hotelRowId = await ensureHotelRow(admin, {
       provider: "agoda",
-      providerHotelId: entry.agodaHotelId,
+      providerHotelId: entry.providerHotelId,
       name: result.hotel.name,
       city: result.hotel.location.city,
       country: result.hotel.location.country,

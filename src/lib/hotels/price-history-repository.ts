@@ -97,7 +97,7 @@ export class SupabasePriceHistoryRepository implements PriceHistoryRepository {
     if (!entry) return this.fallback.getHistory(hotelId, checkIn, checkOut, days);
 
     const supabase = await createClient();
-    const hotelRowId = await findHotelRowId(supabase, "agoda", entry.agodaHotelId);
+    const hotelRowId = await findHotelRowId(supabase, "agoda", entry.providerHotelId);
     if (!hotelRowId) return this.fallback.getHistory(hotelId, checkIn, checkOut, days);
 
     const since = addDaysISO(todayISO(), -(days - 1));
@@ -136,7 +136,7 @@ export class SupabasePriceHistoryRepository implements PriceHistoryRepository {
     if (!catalogEntry) return;
 
     const admin = createAdminClient();
-    const hotelRowId = await findHotelRowId(admin, "agoda", catalogEntry.agodaHotelId);
+    const hotelRowId = await findHotelRowId(admin, "agoda", catalogEntry.providerHotelId);
     if (!hotelRowId) return;
 
     const { error } = await admin.from("hotel_price_history").insert({

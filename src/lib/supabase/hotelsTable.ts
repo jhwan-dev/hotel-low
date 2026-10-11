@@ -6,13 +6,13 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 export async function findHotelRowId(
   supabase: SupabaseClient,
   provider: string,
-  providerHotelId: number,
+  providerHotelId: string,
 ): Promise<string | null> {
   const { data, error } = await supabase
     .from("hotels")
     .select("id")
     .eq("provider", provider)
-    .eq("provider_hotel_id", String(providerHotelId))
+    .eq("provider_hotel_id", providerHotelId)
     .maybeSingle();
   if (error) throw error;
   return data?.id ?? null;
@@ -34,7 +34,7 @@ export async function getHotelProviderRef(
 
 export interface HotelRowInput {
   provider: string;
-  providerHotelId: number;
+  providerHotelId: string;
   name: string;
   city: string;
   country: string;
@@ -57,7 +57,7 @@ export async function ensureHotelRow(admin: SupabaseClient, input: HotelRowInput
     .upsert(
       {
         provider: input.provider,
-        provider_hotel_id: String(input.providerHotelId),
+        provider_hotel_id: input.providerHotelId,
         name: input.name,
         city: input.city,
         country: input.country,

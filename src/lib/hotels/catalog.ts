@@ -11,7 +11,8 @@ import { mockHotels } from "@/lib/hotels/mock-data";
  */
 export interface HotelCatalogEntry {
   appHotelId: string;
-  agodaHotelId: number;
+  /** The provider's own opaque id for this hotel — Agoda's numeric hotel id today, a SerpApi `property_token` once that's the live source. Always carried as a string since not every provider's id is numeric. */
+  providerHotelId: string;
   name: string;
   city: string;
   country: string;
@@ -23,8 +24,8 @@ export interface HotelCatalogEntry {
 export interface HotelCatalog {
   findByDestination(destination: string): HotelCatalogEntry[];
   findByAppHotelId(appHotelId: string): HotelCatalogEntry | null;
-  /** Reverse lookup — Supabase's `hotels` row only stores the provider's numeric id, so listing a user's tracked hotels needs this to get back to our own app id. */
-  findByAgodaHotelId(agodaHotelId: number): HotelCatalogEntry | null;
+  /** Reverse lookup — Supabase's `hotels` row only stores the provider's own id, so listing a user's tracked hotels needs this to get back to our own app id. */
+  findByProviderHotelId(providerHotelId: string): HotelCatalogEntry | null;
   /** Every cataloged hotel — home-page curation (e.g. "recent price drops") scans this rather than one destination. */
   listAll(): HotelCatalogEntry[];
 }
@@ -32,7 +33,7 @@ export interface HotelCatalog {
 function toEntry(mock: (typeof mockHotels)[number]): HotelCatalogEntry {
   return {
     appHotelId: mock.id,
-    agodaHotelId: mock.agodaHotelId,
+    providerHotelId: String(mock.agodaHotelId),
     name: mock.name,
     city: mock.location.city,
     country: mock.location.country,
@@ -62,8 +63,8 @@ export class MockHotelCatalog implements HotelCatalog {
     return mock ? toEntry(mock) : null;
   }
 
-  findByAgodaHotelId(agodaHotelId: number): HotelCatalogEntry | null {
-    const mock = mockHotels.find((h) => h.agodaHotelId === agodaHotelId);
+  findByProviderHotelId(providerHotelId: string): HotelCatalogEntry | null {
+    const mock = mockHotels.find((h) => String(h.agodaHotelId) === providerHotelId);
     return mock ? toEntry(mock) : null;
   }
 
