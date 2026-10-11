@@ -75,9 +75,14 @@ export async function checkPriceAlerts(): Promise<PriceCheckSummary> {
       hotelProvider.getHotelById(hotelId, { destination: "", checkIn, checkOut, adults, children, rooms }),
       hotelProvider.getPriceHistory(hotelId, checkIn, checkOut, 30, partySize),
     ]);
-    if (!result) continue;
+    // TODO(commit 7): this should become hotelProvider.fetchLivePrice() behind
+    // the daily call budget — getHotelById() itself never calls SerpApi, so
+    // under the SerpApi provider this currently only ever sees whatever is
+    // already stored (i.e. never advances the price check at all yet).
+    if (!result || !result.price) continue;
+    const price = result.price;
 
-    const totalPoints = toTotalPoints(history?.points ?? [], result.price.nights, rooms);
+    const totalPoints = toTotalPoints(history?.points ?? [], price.nights, rooms);
     const lastPoint = totalPoints.length > 0 ? totalPoints[totalPoints.length - 1] : null;
     // The mock history generator always includes a point for "today", but the
     // real Supabase-backed history is read *before* recordPrice below writes
@@ -97,15 +102,15 @@ export async function checkPriceAlerts(): Promise<PriceCheckSummary> {
       adults,
       children,
       rooms,
-      price: result.price.nightlyPrice,
-      currency: result.price.currency,
-      provider: result.price.provider,
-      bookingUrl: result.price.deepLink,
+      price: price.nightlyPrice,
+      currency: price.currency,
+      provider: price.provider,
+      bookingUrl: price.deepLink,
     });
 
     for (const item of group) {
       const events = detectPriceEvents({
-        currentTotal: result.price.totalPrice,
+        currentTotal: price.totalPrice,
         previousTotal: previousPoint?.price ?? null,
         last30DaysTotal: totalPoints,
         targetPrice: item.targetPrice,
@@ -129,8 +134,8 @@ export async function checkPriceAlerts(): Promise<PriceCheckSummary> {
           checkOut: item.checkOut,
           type: event.type,
           previousPrice: previousPoint?.price ?? null,
-          currentPrice: result.price.totalPrice,
-          currency: result.price.currency,
+          currentPrice: price.totalPrice,
+          currency: price.currency,
           message: `${result.hotel.name}: ${event.message}`,
         });
         notificationsSent++;

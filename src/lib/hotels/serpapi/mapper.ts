@@ -5,14 +5,12 @@ import type { SerpApiPriceEntry, SerpApiPropertyDetails } from "./types";
 interface MergedPriceEntry {
   source: string;
   nightlyWithTax: number | null;
-  totalWithTax: number | null;
 }
 
 function toMergedEntry(item: SerpApiPriceEntry): MergedPriceEntry {
   return {
     source: item.source,
     nightlyWithTax: item.rate_per_night?.extracted_lowest ?? null,
-    totalWithTax: item.total_rate?.extracted_lowest ?? null,
   };
 }
 
@@ -51,26 +49,35 @@ export function buildBookingUrl(_appHotelId: string, _checkIn: string, _checkOut
  * Maps a SerpApi property-detail response to a RoomPrice, or `null` if
  * Agoda has no quote for this property/stay — not an error, just means
  * there's nothing to show (see HotelProvider.fetchLivePrice callers).
+ *
+ * `totalPrice` is computed here, not read off SerpApi's own `total_rate` —
+ * google_hotels has no "number of rooms" request param at all (it only ever
+ * quotes one room), so `total_rate` for a multi-night stay is just
+ * `rate_per_night × nights`, never `× rooms`. nightlyPrice/nightlyWithTax
+ * stays "per room per night" (the convention hotel_price_history already
+ * uses), and `rooms` is applied here exactly like the Agoda-mock path does.
  */
 export function mapDetailToRoomPrice(
   detail: SerpApiPropertyDetails,
   appHotelId: string,
   checkIn: string,
   checkOut: string,
+  rooms: number,
 ): RoomPrice | null {
   const agoda = findAgoda(mergePriceEntries(detail));
-  if (!agoda || agoda.nightlyWithTax === null || agoda.totalWithTax === null) return null;
+  if (!agoda || agoda.nightlyWithTax === null) return null;
 
   const currency: Currency = "KRW";
+  const nights = nightsBetween(checkIn, checkOut);
   return {
     hotelId: appHotelId,
     provider: "agoda",
     currency,
     checkIn,
     checkOut,
-    nights: nightsBetween(checkIn, checkOut),
+    nights,
     nightlyPrice: agoda.nightlyWithTax,
-    totalPrice: agoda.totalWithTax,
+    totalPrice: agoda.nightlyWithTax * nights * rooms,
     deepLink: buildBookingUrl(appHotelId, checkIn, checkOut) ?? undefined,
   };
 }

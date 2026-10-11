@@ -36,6 +36,8 @@ export interface RoomPrice {
   deepLink?: string;
   /** Rooms left at this rate — undefined when the provider didn't return it. */
   remainingRooms?: number;
+  /** When this price was actually observed. Set on a stored/last-known price (search/getHotelById under the SerpApi provider never call a live API — see HotelProvider.fetchLivePrice); omitted for an always-fresh mock/live quote. */
+  checkedAt?: string;
 }
 
 export interface PricePoint {
@@ -66,7 +68,8 @@ export interface PriceHistory {
 
 export interface HotelSearchResult {
   hotel: Hotel;
-  price: RoomPrice;
+  /** Null means "no stored price for this exact stay yet" — search()/getHotelById() never call a live price API, so this is genuinely absent, not an error. See HotelProvider.fetchLivePrice for the one place that can fill it in. */
+  price: RoomPrice | null;
 }
 
 export interface HotelSearchParams {
@@ -87,11 +90,21 @@ export interface HotelSearchResponse {
 }
 
 export interface HotelProvider {
+  /** Never calls a live price API — reads the catalog and, if any, the latest stored price for this exact stay. */
   search(params: HotelSearchParams): Promise<HotelSearchResponse>;
+  /** Never calls a live price API — same contract as search(), for one hotel. */
   getHotelById(
     id: string,
     params: HotelSearchParams,
   ): Promise<HotelSearchResult | null>;
+  /**
+   * The ONE operation that may actually call a live price API. Callers are
+   * responsible for rate-limiting (src/lib/serpapi/callBudget.ts) and for
+   * persisting the result (priceHistoryRepository.recordPrice) — this just
+   * fetches. Restricted to tracking-start and the price-check cron; never
+   * call this from a page render.
+   */
+  fetchLivePrice(id: string, params: HotelSearchParams): Promise<RoomPrice | null>;
   getPriceHistory(
     hotelId: string,
     checkIn: string,

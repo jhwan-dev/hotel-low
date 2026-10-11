@@ -38,15 +38,21 @@ export function HotelCard({ result, stay }: HotelCardProps) {
           <p className="text-small text-ink-muted">
             {hotel.location.city}, {hotel.location.country}
           </p>
-          <div className="flex items-baseline gap-1.5 pt-1">
-            <span className="text-price-md tabular-nums text-ink">
-              {formatPrice(price.nightlyPrice, price.currency)}
-            </span>
-            <span className="text-small text-ink-muted">/ 1박</span>
-          </div>
-          <p className="text-small text-ink-muted tabular-nums">
-            {formatPrice(price.totalPrice, price.currency)} / {price.nights}박
-          </p>
+          {price ? (
+            <>
+              <div className="flex items-baseline gap-1.5 pt-1">
+                <span className="text-price-md tabular-nums text-ink">
+                  {formatPrice(price.nightlyPrice, price.currency)}
+                </span>
+                <span className="text-small text-ink-muted">/ 1박</span>
+              </div>
+              <p className="text-small text-ink-muted tabular-nums">
+                {formatPrice(price.totalPrice, price.currency)} / {price.nights}박
+              </p>
+            </>
+          ) : (
+            <p className="pt-1 text-small text-ink-muted">가격 확인 전</p>
+          )}
         </CardBody>
       </Link>
       <CardFooter>

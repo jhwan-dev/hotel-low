@@ -15,6 +15,13 @@ import type {
   PriceProvider,
 } from "@/types/hotel";
 
+export interface LatestPrice {
+  nightlyPrice: number;
+  currency: Currency;
+  checkedAt: string;
+  provider: PriceProvider;
+}
+
 export interface RecordPriceInput extends PartySize {
   /** App catalog id (what hotelProvider.getHotelById expects), not the Supabase hotels.id. */
   hotelId: string;
@@ -47,6 +54,19 @@ export interface PriceHistoryRepository {
 
   /** Appends today's price check. Called once per (hotel, dates, party size) by the price-check job — see src/lib/notifications/checkPriceAlerts.ts. */
   recordPrice(entry: RecordPriceInput): Promise<void>;
+
+  /**
+   * Most recently recorded price for this EXACT (hotel, checkIn, checkOut,
+   * partySize) — no fallback to a near match or a different party size.
+   * This is what search()/getHotelById() show instead of ever calling a
+   * live price API — see src/lib/hotels/serpapi/provider.ts.
+   */
+  getLatestPrice(
+    hotelId: string,
+    checkIn: string,
+    checkOut: string,
+    partySize: PartySize,
+  ): Promise<LatestPrice | null>;
 }
 
 export class MockPriceHistoryRepository implements PriceHistoryRepository {
@@ -72,6 +92,11 @@ export class MockPriceHistoryRepository implements PriceHistoryRepository {
 
   /** The mock generator is deterministic from (hotelId, checkIn, checkOut, checkedAt) alone — there's nowhere to persist a write that getHistory would ever read back, so this is intentionally a no-op. */
   async recordPrice(): Promise<void> {}
+
+  /** Mock mode never runs behind SerpApiHotelProvider (the only caller of this method) — unreachable in practice, but implemented for interface completeness. */
+  async getLatestPrice(): Promise<LatestPrice | null> {
+    return null;
+  }
 }
 
 /**
@@ -93,7 +118,7 @@ export class SupabasePriceHistoryRepository implements PriceHistoryRepository {
     days: PriceHistoryRangeDays,
     partySize?: PartySize,
   ): Promise<PriceHistory | null> {
-    const entry = this.catalog.findByAppHotelId(hotelId);
+    const entry = await this.catalog.findByAppHotelId(hotelId);
     if (!entry) return this.fallback.getHistory(hotelId, checkIn, checkOut, days);
 
     const supabase = await createClient();
@@ -132,7 +157,7 @@ export class SupabasePriceHistoryRepository implements PriceHistoryRepository {
 
   /** Writes always go through the admin client — hotel_price_history has no INSERT policy for anon/authenticated (see supabase/migrations/0001_init.sql), only service_role. */
   async recordPrice(entry: RecordPriceInput): Promise<void> {
-    const catalogEntry = this.catalog.findByAppHotelId(entry.hotelId);
+    const catalogEntry = await this.catalog.findByAppHotelId(entry.hotelId);
     if (!catalogEntry) return;
 
     const admin = createAdminClient();
@@ -152,5 +177,41 @@ export class SupabasePriceHistoryRepository implements PriceHistoryRepository {
       booking_url: entry.bookingUrl ?? null,
     });
     if (error) throw error;
+  }
+
+  async getLatestPrice(
+    hotelId: string,
+    checkIn: string,
+    checkOut: string,
+    partySize: PartySize,
+  ): Promise<LatestPrice | null> {
+    const entry = await this.catalog.findByAppHotelId(hotelId);
+    if (!entry) return null;
+
+    const supabase = await createClient();
+    const hotelRowId = await findHotelRowId(supabase, "agoda", entry.providerHotelId);
+    if (!hotelRowId) return null;
+
+    const { data, error } = await supabase
+      .from("hotel_price_history")
+      .select("price, currency, checked_at, provider")
+      .eq("hotel_id", hotelRowId)
+      .eq("check_in", checkIn)
+      .eq("check_out", checkOut)
+      .eq("adults", partySize.adults)
+      .eq("children", partySize.children)
+      .eq("rooms", partySize.rooms)
+      .order("checked_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+
+    return {
+      nightlyPrice: Number(data.price),
+      currency: data.currency as Currency,
+      checkedAt: String(data.checked_at),
+      provider: data.provider as PriceProvider,
+    };
   }
 }

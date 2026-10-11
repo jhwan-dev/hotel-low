@@ -61,13 +61,13 @@ export default async function Home() {
         </div>
         {tracked.length > 0 ? (
           <div className="grid grid-cols-2 gap-3">
-            {tracked.map(({ settings, result, changePercent, previousTotalPrice }) => {
+            {tracked.map(({ settings, hotel, price, changePercent, previousTotalPrice }) => {
               const isDrop = changePercent !== null && changePercent < 0;
               const amountChanged =
                 previousTotalPrice !== null
-                  ? Math.abs(previousTotalPrice - result.price.totalPrice)
+                  ? Math.abs(previousTotalPrice - price.totalPrice)
                   : null;
-              const detailHref = `/hotels/${result.hotel.id}?${stayQueryToSearchParams({
+              const detailHref = `/hotels/${hotel.id}?${stayQueryToSearchParams({
                 checkIn: settings.checkIn,
                 checkOut: settings.checkOut,
                 adults: settings.adults,
@@ -78,8 +78,8 @@ export default async function Home() {
               return (
                 <HotelDealCard
                   key={`${settings.hotelId}-${settings.checkIn}-${settings.checkOut}`}
-                  hotel={result.hotel}
-                  price={result.price}
+                  hotel={hotel}
+                  price={price}
                   detailHref={detailHref}
                   approximate={false}
                   ribbon={{ label: "추적 중", tone: "tracking" }}
@@ -93,7 +93,7 @@ export default async function Home() {
                       <p
                         className={`text-caption font-semibold ${isDrop ? "text-price-down" : "text-price-up"}`}
                       >
-                        {formatPrice(amountChanged, result.price.currency)} {isDrop ? "하락" : "상승"}
+                        {formatPrice(amountChanged, price.currency)} {isDrop ? "하락" : "상승"}
                       </p>
                     ) : null
                   }
@@ -113,7 +113,7 @@ export default async function Home() {
           <h2 className="text-h3 text-ink">최근 가격이 내려간 호텔</h2>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {drops.map((drop) => (
-              <PriceDropCard key={drop.result.hotel.id} {...drop} />
+              <PriceDropCard key={drop.hotel.id} {...drop} />
             ))}
           </div>
         </section>
@@ -124,7 +124,7 @@ export default async function Home() {
           <h2 className="text-h3 text-ink">객실이 얼마 남지 않은 호텔</h2>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {lowAvailability.map((deal) => (
-              <LowAvailabilityCard key={deal.result.hotel.id} {...deal} />
+              <LowAvailabilityCard key={deal.hotel.id} {...deal} />
             ))}
           </div>
         </section>

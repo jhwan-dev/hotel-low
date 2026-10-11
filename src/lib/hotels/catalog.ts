@@ -16,18 +16,29 @@ export interface HotelCatalogEntry {
   name: string;
   city: string;
   country: string;
+  address: string;
+  rating: number;
+  reviewCount: number;
+  images: string[];
+  amenities: string[];
   aliases: string[];
   /** Agoda's Content API has no free-text description field — this is our own editorial copy, stored locally. */
   description: string;
 }
 
+/**
+ * Async because a real catalog is a database table (Supabase `hotels`) —
+ * MockHotelCatalog's in-memory lookups are synchronous underneath, but
+ * `async` methods wrap that transparently, so callers always `await`
+ * regardless of which implementation is wired in.
+ */
 export interface HotelCatalog {
-  findByDestination(destination: string): HotelCatalogEntry[];
-  findByAppHotelId(appHotelId: string): HotelCatalogEntry | null;
+  findByDestination(destination: string): Promise<HotelCatalogEntry[]>;
+  findByAppHotelId(appHotelId: string): Promise<HotelCatalogEntry | null>;
   /** Reverse lookup — Supabase's `hotels` row only stores the provider's own id, so listing a user's tracked hotels needs this to get back to our own app id. */
-  findByProviderHotelId(providerHotelId: string): HotelCatalogEntry | null;
+  findByProviderHotelId(providerHotelId: string): Promise<HotelCatalogEntry | null>;
   /** Every cataloged hotel — home-page curation (e.g. "recent price drops") scans this rather than one destination. */
-  listAll(): HotelCatalogEntry[];
+  listAll(): Promise<HotelCatalogEntry[]>;
 }
 
 function toEntry(mock: (typeof mockHotels)[number]): HotelCatalogEntry {
@@ -37,13 +48,18 @@ function toEntry(mock: (typeof mockHotels)[number]): HotelCatalogEntry {
     name: mock.name,
     city: mock.location.city,
     country: mock.location.country,
+    address: mock.location.address,
+    rating: mock.rating,
+    reviewCount: mock.reviewCount,
+    images: mock.images,
+    amenities: mock.amenities,
     aliases: mock.aliases,
     description: mock.description,
   };
 }
 
 export class MockHotelCatalog implements HotelCatalog {
-  findByDestination(destination: string): HotelCatalogEntry[] {
+  async findByDestination(destination: string): Promise<HotelCatalogEntry[]> {
     const q = destination.trim().toLowerCase();
     if (!q) return [];
 
@@ -58,17 +74,17 @@ export class MockHotelCatalog implements HotelCatalog {
       .map(toEntry);
   }
 
-  findByAppHotelId(appHotelId: string): HotelCatalogEntry | null {
+  async findByAppHotelId(appHotelId: string): Promise<HotelCatalogEntry | null> {
     const mock = mockHotels.find((h) => h.id === appHotelId);
     return mock ? toEntry(mock) : null;
   }
 
-  findByProviderHotelId(providerHotelId: string): HotelCatalogEntry | null {
+  async findByProviderHotelId(providerHotelId: string): Promise<HotelCatalogEntry | null> {
     const mock = mockHotels.find((h) => String(h.agodaHotelId) === providerHotelId);
     return mock ? toEntry(mock) : null;
   }
 
-  listAll(): HotelCatalogEntry[] {
+  async listAll(): Promise<HotelCatalogEntry[]> {
     return mockHotels.map(toEntry);
   }
 }

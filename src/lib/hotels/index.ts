@@ -6,33 +6,32 @@ import {
   SupabasePriceHistoryRepository,
   type PriceHistoryRepository,
 } from "./price-history-repository";
+import { SerpApiHotelProvider } from "./serpapi/provider";
+import { isSerpApiConfigured } from "./serpapi/env";
+import { SupabaseHotelCatalog } from "./supabaseCatalog";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import type { HotelProvider } from "@/types/hotel";
 
-// Swap point 1/3: once Agoda API credentials are available, replace
-// MockAgodaRepository with a real HTTP-backed AgodaRepository (see
-// ./agoda/repository.ts). Nothing that calls `hotelProvider` needs to change.
-const agodaRepository = new MockAgodaRepository();
+// SerpApi is the real price source once SERPAPI_API_KEY is set; otherwise
+// everything below falls back to the original mock path (MockAgodaRepository
+// + MockHotelCatalog) exactly as before. SerpApi mode additionally requires
+// Supabase (the catalog and price history it reads both live there) —
+// isSerpApiConfigured() alone does not skip that requirement.
+const useSerpApi = isSerpApiConfigured() && isSupabaseConfigured();
 
-// Swap point 2/3: HotelCatalog resolves "destination text" -> Agoda hotel
-// ids. Mock reads mock-data.ts; once Supabase is configured a
-// SupabaseHotelCatalog reading the `hotels` table would replace this.
-export const hotelCatalog: HotelCatalog = new MockHotelCatalog();
+export const hotelCatalog: HotelCatalog = useSerpApi
+  ? new SupabaseHotelCatalog()
+  : new MockHotelCatalog();
 
-// Swap point 3/3: price history has no Agoda equivalent — it's our own log
-// (Supabase `hotel_price_history`). Falls back to the deterministic mock
-// generator until NEXT_PUBLIC_SUPABASE_URL / ANON_KEY are set in .env.local.
-// Exported (not just wired into AgodaHotelProvider) because the price-check
-// job needs to *write* a new price point, not just read the graph through
+// Exported (not just wired into the provider) because the price-check job
+// needs to *write* a new price point, not just read the graph through
 // HotelProvider.getPriceHistory — see src/lib/notifications/checkPriceAlerts.ts.
 export const priceHistoryRepository: PriceHistoryRepository = isSupabaseConfigured()
   ? new SupabasePriceHistoryRepository(hotelCatalog)
   : new MockPriceHistoryRepository();
 
-export const hotelProvider: HotelProvider = new AgodaHotelProvider(
-  agodaRepository,
-  hotelCatalog,
-  priceHistoryRepository,
-);
+export const hotelProvider: HotelProvider = useSerpApi
+  ? new SerpApiHotelProvider(hotelCatalog, priceHistoryRepository)
+  : new AgodaHotelProvider(new MockAgodaRepository(), hotelCatalog, priceHistoryRepository);
 
 export { supportedDestinations } from "./destinations";

@@ -1,10 +1,11 @@
 import { hotelCatalog, hotelProvider } from "@/lib/hotels";
 import { addDaysISO, todayISO } from "@/lib/date";
 import { priceStats } from "@/lib/hotels/price-history";
-import type { HotelSearchResult } from "@/types/hotel";
+import type { Hotel, RoomPrice } from "@/types/hotel";
 
 export interface PriceDrop {
-  result: HotelSearchResult;
+  hotel: Hotel;
+  price: RoomPrice;
   /** Positive percent below the 30-day average, e.g. 12 means "12% cheaper than usual". */
   percentDrop: number;
   /** True when the current price matches (or beats) the 30-day low — worth a standout badge. */
@@ -23,7 +24,7 @@ export async function getRecentPriceDrops(limit = 4): Promise<PriceDrop[]> {
   const checkIn = addDaysISO(todayISO(), 14);
   const checkOut = addDaysISO(checkIn, 2);
 
-  const entries = hotelCatalog.listAll();
+  const entries = await hotelCatalog.listAll();
   const candidates = await Promise.all(
     entries.map(async (entry): Promise<PriceDrop | null> => {
       const [result, history] = await Promise.all([
@@ -34,17 +35,16 @@ export async function getRecentPriceDrops(limit = 4): Promise<PriceDrop[]> {
         }),
         hotelProvider.getPriceHistory(entry.appHotelId, checkIn, checkOut, 30),
       ]);
-      if (!result || !history || history.points.length === 0) return null;
+      if (!result || !result.price || !history || history.points.length === 0) return null;
+      const price = result.price;
 
       const stats = priceStats(history.points);
-      if (result.price.nightlyPrice >= stats.avg) return null;
+      if (price.nightlyPrice >= stats.avg) return null;
 
-      const percentDrop = Math.round(
-        ((stats.avg - result.price.nightlyPrice) / stats.avg) * 100,
-      );
+      const percentDrop = Math.round(((stats.avg - price.nightlyPrice) / stats.avg) * 100);
       if (percentDrop <= 0) return null;
 
-      return { result, percentDrop, isRecordLow: result.price.nightlyPrice <= stats.min };
+      return { hotel: result.hotel, price, percentDrop, isRecordLow: price.nightlyPrice <= stats.min };
     }),
   );
 

@@ -51,7 +51,7 @@ export class SupabaseTrackedHotelsRepository implements TrackedHotelsRepository 
   constructor(private readonly catalog: HotelCatalog) {}
 
   private async resolveHotelRowId(hotelId: string): Promise<string | null> {
-    const entry = this.catalog.findByAppHotelId(hotelId);
+    const entry = await this.catalog.findByAppHotelId(hotelId);
     if (!entry) return null;
     const supabase = await createClient();
     return findHotelRowId(supabase, "agoda", entry.providerHotelId);
@@ -95,7 +95,7 @@ export class SupabaseTrackedHotelsRepository implements TrackedHotelsRepository 
     for (const row of data) {
       const ref = await getHotelProviderRef(supabase, row.hotel_id);
       if (!ref || ref.provider !== "agoda") continue;
-      const entry = this.catalog.findByProviderHotelId(ref.providerHotelId);
+      const entry = await this.catalog.findByProviderHotelId(ref.providerHotelId);
       if (!entry) continue;
       results.push(toSettings(row, entry.appHotelId));
     }
@@ -103,7 +103,7 @@ export class SupabaseTrackedHotelsRepository implements TrackedHotelsRepository 
   }
 
   async upsert(userId: string, input: TrackingInput): Promise<PriceTrackingSettings> {
-    const entry = this.catalog.findByAppHotelId(input.hotelId);
+    const entry = await this.catalog.findByAppHotelId(input.hotelId);
     if (!entry) throw new Error(`Unknown hotel: ${input.hotelId}`);
 
     const result = await hotelProvider.getHotelById(input.hotelId, {

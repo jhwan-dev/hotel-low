@@ -7,6 +7,7 @@ import type {
   HotelSearchResult,
   PartySize,
   PriceHistoryRangeDays,
+  RoomPrice,
 } from "@/types/hotel";
 import { mapContentToHotel, mapPropertyToRoomPrice } from "./mapper";
 import type { AgodaRepository } from "./repository";
@@ -84,17 +85,23 @@ export class AgodaHotelProvider implements HotelProvider {
   }
 
   async search(params: HotelSearchParams): Promise<HotelSearchResponse> {
-    const entries = this.catalog.findByDestination(params.destination);
+    const entries = await this.catalog.findByDestination(params.destination);
     const results = await this.resolve(entries, params);
     return { params, results, totalCount: results.length };
   }
 
   async getHotelById(id: string, params: HotelSearchParams): Promise<HotelSearchResult | null> {
-    const entry = this.catalog.findByAppHotelId(id);
+    const entry = await this.catalog.findByAppHotelId(id);
     if (!entry) return null;
 
     const [result] = await this.resolve([entry], params);
     return result ?? null;
+  }
+
+  /** Mock/Agoda mode has no separate "live" vs "stored" distinction — every getHotelById call already fabricates a fresh quote, so this just reuses it. */
+  async fetchLivePrice(id: string, params: HotelSearchParams): Promise<RoomPrice | null> {
+    const result = await this.getHotelById(id, params);
+    return result?.price ?? null;
   }
 
   async getPriceHistory(
