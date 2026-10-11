@@ -1,15 +1,21 @@
 import "server-only";
 
 import { MOCK_USER_ID } from "@/lib/auth/getCurrentUser";
-import { hotelProvider, priceHistoryRepository } from "@/lib/hotels";
-import { todayISO } from "@/lib/date";
+import { hotelCatalog, hotelProvider, priceHistoryRepository } from "@/lib/hotels";
+import { getSerpApiCronReserve, getSerpApiDailyLimit, isSerpApiConfigured } from "@/lib/hotels/serpapi/env";
+import { daysBetween, todayISO } from "@/lib/date";
 import { toTotalPoints } from "@/lib/hotels/price-history";
+import { tryConsumeDailyCall } from "@/lib/serpapi/callBudget";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { trackedHotelsRepository } from "@/lib/tracking";
 import type { PriceTrackingSettings } from "@/types/tracking";
 import { detectPriceEvents } from "./detectPriceEvents";
 import { notificationRepository, notificationService } from "./index";
 import { listAllActiveTrackedHotels, type TrackedHotelForCheck } from "./priceCheckQueries";
+
+/** A tracked stay this far out only needs re-checking every RECHECK_INTERVAL_DAYS — it's not going anywhere soon. */
+const FAR_OUT_THRESHOLD_DAYS = 30;
+const RECHECK_INTERVAL_DAYS = 2;
 
 function toCheckItem(userId: string, settings: PriceTrackingSettings): TrackedHotelForCheck {
   return {
@@ -66,34 +72,47 @@ export async function checkPriceAlerts(): Promise<PriceCheckSummary> {
 
   const today = todayISO();
   let notificationsSent = 0;
+  // Only SerpApi mode has anything to throttle/rate-limit — the mock/Agoda
+  // fallback's fetchLivePrice() costs nothing real.
+  const serpApiActive = isSerpApiConfigured();
 
   for (const group of groups.values()) {
     const { hotelId, checkIn, checkOut, adults, children, rooms } = group[0];
     const partySize = { adults, children, rooms };
 
-    const [result, history] = await Promise.all([
-      hotelProvider.getHotelById(hotelId, { destination: "", checkIn, checkOut, adults, children, rooms }),
+    if (serpApiActive && daysBetween(today, checkIn) >= FAR_OUT_THRESHOLD_DAYS) {
+      const latest = await priceHistoryRepository.getLatestPrice(hotelId, checkIn, checkOut, partySize);
+      if (latest && daysBetween(latest.checkedAt.slice(0, 10), today) < RECHECK_INTERVAL_DAYS) continue;
+    }
+
+    if (serpApiActive) {
+      const allowed = await tryConsumeDailyCall(getSerpApiDailyLimit() - getSerpApiCronReserve());
+      // Budget is shared across every remaining group this run too — once
+      // it's gone, it's gone for the rest of this tick. Whatever's left
+      // over gets picked up on the next cron run.
+      if (!allowed) break;
+    }
+
+    const [price, history] = await Promise.all([
+      hotelProvider.fetchLivePrice(hotelId, { destination: "", checkIn, checkOut, adults, children, rooms }),
       hotelProvider.getPriceHistory(hotelId, checkIn, checkOut, 30, partySize),
     ]);
-    // TODO(commit 7): this should become hotelProvider.fetchLivePrice() behind
-    // the daily call budget — getHotelById() itself never calls SerpApi, so
-    // under the SerpApi provider this currently only ever sees whatever is
-    // already stored (i.e. never advances the price check at all yet).
-    if (!result || !result.price) continue;
-    const price = result.price;
+    if (!price) continue; // Agoda has no quote today — skip record+notify, keep the tracking as-is
 
     const totalPoints = toTotalPoints(history?.points ?? [], price.nights, rooms);
     const lastPoint = totalPoints.length > 0 ? totalPoints[totalPoints.length - 1] : null;
     // The mock history generator always includes a point for "today", but the
     // real Supabase-backed history is read *before* recordPrice below writes
     // today's price — so its last point is yesterday's, not today's. Only
-    // step back an extra point when the last one actually is today.
-    const previousPoint =
-      lastPoint && lastPoint.checkedAt === today
-        ? totalPoints.length >= 2
-          ? totalPoints[totalPoints.length - 2]
-          : null
-        : lastPoint;
+    // treat the last point as "previous"/exclude it from priorDaysTotal when
+    // it actually is today's.
+    const lastIsToday = lastPoint?.checkedAt === today;
+    const previousPoint = lastIsToday
+      ? totalPoints.length >= 2
+        ? totalPoints[totalPoints.length - 2]
+        : null
+      : lastPoint;
+    const priorDaysTotal = lastIsToday ? totalPoints.slice(0, -1) : totalPoints;
 
     await priceHistoryRepository.recordPrice({
       hotelId,
@@ -108,11 +127,14 @@ export async function checkPriceAlerts(): Promise<PriceCheckSummary> {
       bookingUrl: price.deepLink,
     });
 
+    const entry = await hotelCatalog.findByAppHotelId(hotelId);
+    const hotelName = entry?.name ?? "호텔";
+
     for (const item of group) {
       const events = detectPriceEvents({
         currentTotal: price.totalPrice,
         previousTotal: previousPoint?.price ?? null,
-        last30DaysTotal: totalPoints,
+        priorDaysTotal,
         targetPrice: item.targetPrice,
         notifyOnAnyDrop: item.notifyOnAnyDrop,
         notifyOnNewLow: item.notifyOnNewLow,
@@ -136,7 +158,7 @@ export async function checkPriceAlerts(): Promise<PriceCheckSummary> {
           previousPrice: previousPoint?.price ?? null,
           currentPrice: price.totalPrice,
           currency: price.currency,
-          message: `${result.hotel.name}: ${event.message}`,
+          message: `${hotelName}: ${event.message}`,
         });
         notificationsSent++;
       }

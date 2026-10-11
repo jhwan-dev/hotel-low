@@ -12,6 +12,13 @@ export function addDaysISO(iso: string, days: number): string {
   return toISODate(date);
 }
 
+/** Plain day count from `fromISO` to `toISO` — positive when `toISO` is later. Pass bare YYYY-MM-DD strings (slice off any time component first). */
+export function daysBetween(fromISO: string, toISO: string): number {
+  const from = new Date(`${fromISO}T00:00:00Z`).getTime();
+  const to = new Date(`${toISO}T00:00:00Z`).getTime();
+  return Math.round((to - from) / (1000 * 60 * 60 * 24));
+}
+
 export function nightsBetween(checkIn: string, checkOut: string): number {
   const start = new Date(`${checkIn}T00:00:00Z`).getTime();
   const end = new Date(`${checkOut}T00:00:00Z`).getTime();
