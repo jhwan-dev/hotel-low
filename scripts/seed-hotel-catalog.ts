@@ -289,6 +289,11 @@ function selectCandidateHotels(searchResponse: JsonValue, limit: number): Listed
   });
 }
 
+/** Only present in the detail response — the list response has no address field at all. */
+function extractAddress(detail: JsonValue): string {
+  return isRecord(detail) && typeof detail.address === "string" ? detail.address : "";
+}
+
 /** Same prices+featured_prices union-by-source as src/lib/hotels/serpapi/mapper.ts — only need the count here, not the prices themselves. */
 function countSellers(detail: JsonValue): number {
   if (!isRecord(detail)) return 0;
@@ -354,12 +359,10 @@ async function main() {
         continue;
       }
 
-      // No address field anywhere in SerpApi's list/detail response — left
-      // blank rather than guessed. agoda_price_status/agoda_price_checked_at
-      // are deliberately omitted here (not just set to defaults): omitting
-      // them means a re-seed never resets a status a real tracking-start
-      // check already set (see src/lib/supabase/hotelsTable.ts:ensureHotelRow,
-      // same reasoning).
+      // agoda_price_status/agoda_price_checked_at are deliberately omitted
+      // here (not just set to defaults): omitting them means a re-seed
+      // never resets a status a real tracking-start check already set (see
+      // src/lib/supabase/hotelsTable.ts:ensureHotelRow, same reasoning).
       const { error } = await supabase.from("hotels").upsert(
         {
           provider: "agoda",
@@ -367,7 +370,7 @@ async function main() {
           name: hotel.name,
           city,
           country,
-          address: "",
+          address: extractAddress(detail),
           rating: hotel.rating,
           review_count: hotel.reviewCount,
           images: hotel.images,

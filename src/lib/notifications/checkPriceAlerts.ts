@@ -93,10 +93,21 @@ export async function checkPriceAlerts(): Promise<PriceCheckSummary> {
       if (!allowed) break;
     }
 
-    const [price, history] = await Promise.all([
-      hotelProvider.fetchLivePrice(hotelId, { destination: "", checkIn, checkOut, adults, children, rooms }),
-      hotelProvider.getPriceHistory(hotelId, checkIn, checkOut, 30, partySize),
-    ]);
+    let price, history;
+    try {
+      // A live price-source failure (bad request, network error, timeout —
+      // e.g. SerpApi rejecting a stale tracking whose check-in date has
+      // already passed) must not take down every other group's check in
+      // this run. Log and move on; the stale group just gets retried next
+      // tick.
+      [price, history] = await Promise.all([
+        hotelProvider.fetchLivePrice(hotelId, { destination: "", checkIn, checkOut, adults, children, rooms }),
+        hotelProvider.getPriceHistory(hotelId, checkIn, checkOut, 30, partySize),
+      ]);
+    } catch (err) {
+      console.error(`checkPriceAlerts: live price fetch failed for ${hotelId} ${checkIn}->${checkOut}`, err);
+      continue;
+    }
     if (!price) continue; // Agoda has no quote today — skip record+notify, keep the tracking as-is
 
     const totalPoints = toTotalPoints(history?.points ?? [], price.nights, rooms);
