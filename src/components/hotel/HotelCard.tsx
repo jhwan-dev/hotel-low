@@ -1,7 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
-import { StarIcon } from "@/components/icons";
+import { ClockIcon, StarIcon } from "@/components/icons";
 import { Card, CardBody, CardFooter, CardMedia } from "@/components/ui";
+import { formatRelativeDays } from "@/lib/date";
 import { formatPrice, formatRating } from "@/lib/format";
 import { stayQueryToSearchParams, type StayQuery } from "@/lib/search/stay-query";
 import type { HotelSearchResult } from "@/types/hotel";
@@ -49,6 +50,12 @@ export function HotelCard({ result, stay }: HotelCardProps) {
               <p className="text-small text-ink-muted tabular-nums">
                 {formatPrice(price.totalPrice, price.currency)} / {price.nights}박
               </p>
+              {price.checkedAt && (
+                <span className="inline-flex items-center gap-1 text-caption text-ink-muted">
+                  <ClockIcon width={12} height={12} />
+                  {formatRelativeDays(price.checkedAt)} · 쿠폰 등으로 실제가는 더 낮을 수 있어요
+                </span>
+              )}
             </>
           ) : (
             <p className="pt-1 text-small text-ink-muted">가격 확인 전</p>

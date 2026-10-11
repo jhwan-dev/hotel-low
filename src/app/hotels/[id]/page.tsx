@@ -2,15 +2,15 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { ArrowDownIcon, ArrowUpIcon, ChevronLeftIcon, StarIcon } from "@/components/icons";
+import { ArrowDownIcon, ArrowUpIcon, ChevronLeftIcon, ClockIcon, StarIcon } from "@/components/icons";
 import { Container } from "@/components/layout";
 import { Badge, LinkButton } from "@/components/ui";
 import { PriceHistoryChart, PriceTrackingCta, StayConditionsBar } from "@/components/hotel";
 import { getCurrentUser } from "@/lib/auth/getCurrentUser";
-import { hotelProvider } from "@/lib/hotels";
+import { hotelCatalog, hotelProvider } from "@/lib/hotels";
 import { computePriceStatus, priceStatusToneClasses, toTotalPoints } from "@/lib/hotels/price-history";
 import { getMyTrackingStatus } from "@/lib/tracking/queries";
-import { nightsBetween } from "@/lib/date";
+import { formatRelativeDays, nightsBetween } from "@/lib/date";
 import {
   firstParam,
   hasExplicitStay,
@@ -24,14 +24,15 @@ export async function generateMetadata(
   props: PageProps<"/hotels/[id]">,
 ): Promise<Metadata> {
   const { id } = await props.params;
-  const stay = parseStayQuery({});
-  const result = await hotelProvider.getHotelById(id, { destination: "", ...stay });
+  // Catalog-only lookup — no need for a full getHotelById (price + history)
+  // just to render a title/description.
+  const entry = await hotelCatalog.findByAppHotelId(id);
 
-  if (!result) return { title: "호텔을 찾을 수 없어요" };
+  if (!entry) return { title: "호텔을 찾을 수 없어요" };
 
   return {
-    title: result.hotel.name,
-    description: result.hotel.description,
+    title: entry.name,
+    description: entry.description,
   };
 }
 
@@ -122,7 +123,17 @@ export default async function HotelDetailPage(props: PageProps<"/hotels/[id]">) 
           follows right under it — never shown as the only figure, so the two
           never read as contradictory numbers. */}
       <div className="flex flex-col gap-3 rounded-card border border-border bg-surface p-5">
-        <span className="text-small text-ink-muted">현재 가격</span>
+        <div className="flex items-center justify-between">
+          <span className="text-small text-ink-muted">
+            {price?.checkedAt ? "최근 확인 가격" : "현재 가격"}
+          </span>
+          {price?.checkedAt && (
+            <span className="inline-flex items-center gap-1 text-caption text-ink-muted">
+              <ClockIcon width={12} height={12} />
+              {formatRelativeDays(price.checkedAt)}
+            </span>
+          )}
+        </div>
         {price && status ? (
           <>
             <div className="flex flex-col gap-0.5">
@@ -134,6 +145,9 @@ export default async function HotelDetailPage(props: PageProps<"/hotels/[id]">) 
               </div>
               <p className="text-price-sm tabular-nums text-ink-muted">
                 {formatPrice(price.totalPrice, price.currency)} / {price.nights}박
+              </p>
+              <p className="text-caption text-ink-muted">
+                아고다 쿠폰 등으로 실제 결제가가 더 낮을 수 있어요
               </p>
             </div>
 
@@ -149,7 +163,7 @@ export default async function HotelDetailPage(props: PageProps<"/hotels/[id]">) 
             </div>
           </>
         ) : (
-          <p className="text-body text-ink-muted">가격 확인 전</p>
+          <p className="text-body text-ink-muted">가격 확인 전 · 추적을 시작하면 바로 확인해드려요</p>
         )}
       </div>
 
