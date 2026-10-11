@@ -6,6 +6,18 @@ export function todayISO(): string {
   return toISODate(new Date());
 }
 
+/** "Today" as a plain YYYY-MM-DD in Asia/Seoul specifically, not wherever the server process happens to run (todayISO() uses the server's own TZ, which on Vercel is UTC) — for day-boundary decisions that should follow the Korean calendar day regardless of host. */
+export function todayISOInSeoul(): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const lookup = Object.fromEntries(parts.map((p) => [p.type, p.value]));
+  return `${lookup.year}-${lookup.month}-${lookup.day}`;
+}
+
 export function addDaysISO(iso: string, days: number): string {
   const date = new Date(`${iso}T00:00:00Z`);
   date.setUTCDate(date.getUTCDate() + days);

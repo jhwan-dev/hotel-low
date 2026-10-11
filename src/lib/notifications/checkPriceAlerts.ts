@@ -3,7 +3,7 @@ import "server-only";
 import { MOCK_USER_ID } from "@/lib/auth/getCurrentUser";
 import { hotelCatalog, hotelProvider, priceHistoryRepository } from "@/lib/hotels";
 import { getSerpApiCronReserve, getSerpApiDailyLimit, isSerpApiConfigured } from "@/lib/hotels/serpapi/env";
-import { daysBetween, todayISO } from "@/lib/date";
+import { daysBetween, todayISO, todayISOInSeoul } from "@/lib/date";
 import { toTotalPoints } from "@/lib/hotels/price-history";
 import { tryConsumeDailyCall } from "@/lib/serpapi/callBudget";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
@@ -11,7 +11,11 @@ import { trackedHotelsRepository } from "@/lib/tracking";
 import type { PriceTrackingSettings } from "@/types/tracking";
 import { detectPriceEvents } from "./detectPriceEvents";
 import { notificationRepository, notificationService } from "./index";
-import { listAllActiveTrackedHotels, type TrackedHotelForCheck } from "./priceCheckQueries";
+import {
+  deactivateExpiredTrackedHotels,
+  listAllActiveTrackedHotels,
+  type TrackedHotelForCheck,
+} from "./priceCheckQueries";
 
 /** A tracked stay this far out only needs re-checking every RECHECK_INTERVAL_DAYS — it's not going anywhere soon. */
 const FAR_OUT_THRESHOLD_DAYS = 30;
@@ -44,6 +48,8 @@ function groupKey(item: TrackedHotelForCheck): string {
 export interface PriceCheckSummary {
   checked: number;
   notificationsSent: number;
+  /** Active trackings turned off this run because their check-in date has already passed (Asia/Seoul calendar day). */
+  deactivatedExpired: number;
 }
 
 /**
@@ -56,6 +62,25 @@ export interface PriceCheckSummary {
  * schedule — see that route for the CRON_SECRET check).
  */
 export async function checkPriceAlerts(): Promise<PriceCheckSummary> {
+  // A stay that has already started has nothing left to notify about — turn
+  // it off and leave it out of this run entirely, rather than letting it sit
+  // active forever (e.g. a user who never clicks "추적 중지" after their trip).
+  // Asia/Seoul specifically, not the server's own TZ, since that's the
+  // calendar day the user actually experiences the check-in on.
+  const todaySeoul = todayISOInSeoul();
+  let deactivatedExpired: number;
+  if (isSupabaseConfigured()) {
+    deactivatedExpired = await deactivateExpiredTrackedHotels(todaySeoul);
+  } else {
+    const staleMock = (await trackedHotelsRepository.listActive(MOCK_USER_ID)).filter(
+      (s) => s.checkIn < todaySeoul,
+    );
+    for (const s of staleMock) {
+      await trackedHotelsRepository.deactivate(MOCK_USER_ID, s.hotelId, s.checkIn, s.checkOut);
+    }
+    deactivatedExpired = staleMock.length;
+  }
+
   const items = isSupabaseConfigured()
     ? await listAllActiveTrackedHotels()
     : (await trackedHotelsRepository.listActive(MOCK_USER_ID)).map((s) =>
@@ -176,5 +201,5 @@ export async function checkPriceAlerts(): Promise<PriceCheckSummary> {
     }
   }
 
-  return { checked: items.length, notificationsSent };
+  return { checked: items.length, notificationsSent, deactivatedExpired };
 }
