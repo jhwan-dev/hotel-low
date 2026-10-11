@@ -38,6 +38,7 @@ export function TrackedHotelCard({
   const [stopped, setStopped] = useState(false);
   const [currentSettings, setCurrentSettings] = useState(settings);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const detailHref = `/hotels/${hotel.id}?${stayQueryToSearchParams({
     checkIn: currentSettings.checkIn,
     checkOut: currentSettings.checkOut,
@@ -58,6 +59,7 @@ export function TrackedHotelCard({
   function submitSettings(
     values: Pick<PriceTrackingSettings, "targetPrice" | "notifyOnAnyDrop" | "notifyOnNewLow">,
   ) {
+    setError(null);
     startTransition(async () => {
       const result = await startTracking({
         hotelId: hotel.id,
@@ -69,10 +71,12 @@ export function TrackedHotelCard({
         currency: currentSettings.currency,
         ...values,
       });
-      if (!("error" in result)) {
-        setCurrentSettings(result);
-        setSheetOpen(false);
+      if ("error" in result) {
+        setError(result.error);
+        return;
       }
+      setCurrentSettings(result);
+      setSheetOpen(false);
     });
   }
 
@@ -122,6 +126,8 @@ export function TrackedHotelCard({
             {status.message}
           </span>
         )}
+
+        {error && <p className="text-caption text-price-up">{error}</p>}
 
         <div className="mt-auto flex items-center justify-between gap-2 pt-1">
           {lastCheckedAt ? (

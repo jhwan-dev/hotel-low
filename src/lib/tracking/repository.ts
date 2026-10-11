@@ -1,5 +1,8 @@
 import type { PriceTrackingSettings } from "@/types/tracking";
 
+/** Thrown by TrackedHotelsRepository.upsert for a reason the user should see verbatim (e.g. "이 숙소는 현재 아고다 가격을 확인할 수 없어요") — src/lib/tracking/actions.ts catches this specifically and turns it into a TrackingActionError, unlike any other thrown error. */
+export class TrackingRejectedError extends Error {}
+
 export type TrackingInput = Pick<
   PriceTrackingSettings,
   | "hotelId"

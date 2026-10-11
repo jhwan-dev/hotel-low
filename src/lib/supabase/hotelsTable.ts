@@ -74,3 +74,22 @@ export async function ensureHotelRow(admin: SupabaseClient, input: HotelRowInput
   if (error) throw error;
   return data.id;
 }
+
+/**
+ * Records whether a live price check actually found an Agoda rate —
+ * written right after tracking-start's one-time fetchLivePrice call (see
+ * src/lib/tracking/supabaseRepository.ts), success or failure either way.
+ * Admin client only, same reasoning as ensureHotelRow.
+ */
+export async function updateAgodaPriceStatus(
+  admin: SupabaseClient,
+  hotelRowId: string,
+  status: "available" | "unavailable",
+  checkedAt: string,
+): Promise<void> {
+  const { error } = await admin
+    .from("hotels")
+    .update({ agoda_price_status: status, agoda_price_checked_at: checkedAt })
+    .eq("id", hotelRowId);
+  if (error) throw error;
+}
