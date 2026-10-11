@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import Script from "next/script";
 import Link from "next/link";
 import { BellIcon } from "@/components/icons";
 import { BottomNav, Header } from "@/components/layout";
@@ -59,6 +60,19 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         <main className="flex-1 pb-20 md:pb-8">{children}</main>
         <BottomNav />
       </body>
+      {/* 트래블페이아웃 Drive 사이트 인증용 — 자동 링크 변환 기능은 대시보드에서 끔 */}
+      <Script
+        id="travelpayouts-drive"
+        dangerouslySetInnerHTML={{
+          __html: `(function () {
+      var script = document.createElement("script");
+      script.async = 1;
+      script.setAttribute("data-cmp-ab","2");
+      script.src = 'https://emrldco.com/NTg0MDMw.js?t=584030';
+      document.head.appendChild(script);
+    })();`,
+        }}
+      />
     </html>
   );
 }
