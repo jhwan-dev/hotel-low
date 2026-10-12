@@ -4,6 +4,7 @@ import { KakaoSignInButton } from "@/components/auth/KakaoSignInButton";
 import { OrDivider } from "@/components/auth/OrDivider";
 import { Container } from "@/components/layout";
 import { Button } from "@/components/ui";
+import { AppDownloadBanner } from "@/components/notifications/AppDownloadBanner";
 import { NotificationListItem } from "@/components/notifications/NotificationListItem";
 import { signOut } from "@/lib/auth/actions";
 import { isKakaoLoginEnabled } from "@/lib/auth/featureFlags";
@@ -62,6 +63,8 @@ export default async function AlertsPage() {
           )}
         </div>
       </div>
+
+      <AppDownloadBanner />
 
       {notifications.length === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-card border border-dashed border-border p-10 text-center">

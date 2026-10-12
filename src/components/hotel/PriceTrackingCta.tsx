@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { LoginPromptSheet } from "@/components/auth/LoginPromptSheet";
+import { AppDownloadBanner } from "@/components/notifications/AppDownloadBanner";
 import { StayPickerSheet } from "@/components/search";
 import { BellIcon } from "@/components/icons";
 import { Badge, Button } from "@/components/ui";
@@ -200,6 +201,7 @@ export function PriceTrackingCta({
               추적 중지
             </Button>
           </div>
+          {confirmedPrice && <AppDownloadBanner />}
         </div>
       ) : (
         <Button size="lg" fullWidth disabled={isPending} onClick={startTrackingFlow}>
