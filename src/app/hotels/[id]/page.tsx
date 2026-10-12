@@ -2,14 +2,15 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { ArrowDownIcon, ArrowUpIcon, ChevronLeftIcon, StarIcon } from "@/components/icons";
+import { ArrowDownIcon, ArrowUpIcon, ChevronLeftIcon, ClockIcon, StarIcon } from "@/components/icons";
 import { Container } from "@/components/layout";
 import { Badge, LinkButton } from "@/components/ui";
 import { PriceHistoryChart, PriceTrackingCta, StayConditionsBar } from "@/components/hotel";
 import { getCurrentUser } from "@/lib/auth/getCurrentUser";
-import { hotelProvider } from "@/lib/hotels";
+import { hotelCatalog, hotelProvider } from "@/lib/hotels";
 import { computePriceStatus, priceStatusToneClasses, toTotalPoints } from "@/lib/hotels/price-history";
 import { getMyTrackingStatus } from "@/lib/tracking/queries";
+import { formatRelativeDays, nightsBetween } from "@/lib/date";
 import {
   firstParam,
   hasExplicitStay,
@@ -23,14 +24,15 @@ export async function generateMetadata(
   props: PageProps<"/hotels/[id]">,
 ): Promise<Metadata> {
   const { id } = await props.params;
-  const stay = parseStayQuery({});
-  const result = await hotelProvider.getHotelById(id, { destination: "", ...stay });
+  // Catalog-only lookup — no need for a full getHotelById (price + history)
+  // just to render a title/description.
+  const entry = await hotelCatalog.findByAppHotelId(id);
 
-  if (!result) return { title: "호텔을 찾을 수 없어요" };
+  if (!entry) return { title: "호텔을 찾을 수 없어요" };
 
   return {
-    title: result.hotel.name,
-    description: result.hotel.description,
+    title: entry.name,
+    description: entry.description,
   };
 }
 
@@ -51,10 +53,16 @@ export default async function HotelDetailPage(props: PageProps<"/hotels/[id]">) 
   if (!result || !history) notFound();
 
   const { hotel, price } = result;
-  const totalPoints = toTotalPoints(history.points, price.nights, stay.rooms);
+  // Only ever absent for a catalog hotel nothing has checked a live price for
+  // yet (see HotelProvider.search/getHotelById — neither calls SerpApi) —
+  // still need a nights count for the history chart below.
+  const nights = price?.nights ?? nightsBetween(stay.checkIn, stay.checkOut);
+  const totalPoints = toTotalPoints(history.points, nights, stay.rooms);
   const last30Total = totalPoints.slice(-30);
   const previousTotal = last30Total.length >= 2 ? last30Total[last30Total.length - 2].price : null;
-  const status = computePriceStatus(price.totalPrice, previousTotal, last30Total, price.currency);
+  const status = price
+    ? computePriceStatus(price.totalPrice, previousTotal, last30Total, price.currency)
+    : null;
 
   return (
     <Container className="flex flex-col gap-5 py-4">
@@ -106,7 +114,7 @@ export default async function HotelDetailPage(props: PageProps<"/hotels/[id]">) 
       <StayConditionsBar
         hotelId={id}
         stay={stay}
-        nights={price.nights}
+        nights={nights}
         confirmed={confirmedStay}
       />
 
@@ -115,36 +123,55 @@ export default async function HotelDetailPage(props: PageProps<"/hotels/[id]">) 
           follows right under it — never shown as the only figure, so the two
           never read as contradictory numbers. */}
       <div className="flex flex-col gap-3 rounded-card border border-border bg-surface p-5">
-        <span className="text-small text-ink-muted">현재 가격</span>
-        <div className="flex flex-col gap-0.5">
-          <div className="flex items-baseline gap-1.5">
-            <span className="text-display tabular-nums text-ink">
-              {formatPrice(price.nightlyPrice, price.currency)}
+        <div className="flex items-center justify-between">
+          <span className="text-small text-ink-muted">
+            {price?.checkedAt ? "최근 확인 가격" : "현재 가격"}
+          </span>
+          {price?.checkedAt && (
+            <span className="inline-flex items-center gap-1 text-caption text-ink-muted">
+              <ClockIcon width={12} height={12} />
+              {formatRelativeDays(price.checkedAt)}
             </span>
-            <span className="text-body text-ink-muted">/ 1박</span>
-          </div>
-          <p className="text-price-sm tabular-nums text-ink-muted">
-            {formatPrice(price.totalPrice, price.currency)} / {price.nights}박
-          </p>
-        </div>
-
-        <div
-          className={cn(
-            "flex items-center gap-1.5 rounded-control px-3 py-2 text-small font-semibold",
-            priceStatusToneClasses[status.trend],
           )}
-        >
-          {status.trend === "down" && <ArrowDownIcon width={16} height={16} />}
-          {status.trend === "up" && <ArrowUpIcon width={16} height={16} />}
-          {status.message}
         </div>
+        {price && status ? (
+          <>
+            <div className="flex flex-col gap-0.5">
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-display tabular-nums text-ink">
+                  {formatPrice(price.nightlyPrice, price.currency)}
+                </span>
+                <span className="text-body text-ink-muted">/ 1박</span>
+              </div>
+              <p className="text-price-sm tabular-nums text-ink-muted">
+                {formatPrice(price.totalPrice, price.currency)} / {price.nights}박
+              </p>
+              <p className="text-caption text-ink-muted">
+                아고다 쿠폰 등으로 실제 결제가가 더 낮을 수 있어요
+              </p>
+            </div>
+
+            <div
+              className={cn(
+                "flex items-center gap-1.5 rounded-control px-3 py-2 text-small font-semibold",
+                priceStatusToneClasses[status.trend],
+              )}
+            >
+              {status.trend === "down" && <ArrowDownIcon width={16} height={16} />}
+              {status.trend === "up" && <ArrowUpIcon width={16} height={16} />}
+              {status.message}
+            </div>
+          </>
+        ) : (
+          <p className="text-body text-ink-muted">가격 확인 전 · 추적을 시작하면 바로 확인해드려요</p>
+        )}
       </div>
 
       {/* Price history — swap `history.points` for a real Agoda/Booking feed later; PriceHistoryChart itself only needs PricePoint[]. Always the same total-stay basis as the price block above, so "현재가" here matches the headline number exactly. */}
       <div className="flex flex-col gap-1 rounded-card border border-border bg-surface p-5">
         <h2 className="text-h3 text-ink">총 숙박 가격 변화</h2>
-        <p className="text-caption text-ink-muted">{price.nights}박 총 가격 기준</p>
-        <PriceHistoryChart points={totalPoints} currency={price.currency} className="pt-3" />
+        <p className="text-caption text-ink-muted">{nights}박 총 가격 기준</p>
+        <PriceHistoryChart points={totalPoints} currency={price?.currency ?? "KRW"} className="pt-3" />
       </div>
 
       <div className="flex flex-col gap-3">
@@ -154,9 +181,9 @@ export default async function HotelDetailPage(props: PageProps<"/hotels/[id]">) 
           hotelName={hotel.name}
           location={`${hotel.location.city}, ${hotel.location.country}`}
           stay={stay}
-          nights={price.nights}
-          currentPrice={price.totalPrice}
-          currency={price.currency}
+          nights={nights}
+          currentPrice={price?.totalPrice ?? 0}
+          currency={price?.currency ?? "KRW"}
           initialSettings={initialTracking}
           isLoggedIn={user !== null}
           loginRedirectPath={
@@ -165,20 +192,24 @@ export default async function HotelDetailPage(props: PageProps<"/hotels/[id]">) 
           hasExplicitStay={confirmedStay}
           autoOpen={autoOpenTrackingSheet}
         />
-        {price.deepLink && (
+        {price?.deepLink && (
           <>
             <LinkButton
               href={price.deepLink}
               target="_blank"
               rel="noopener noreferrer"
-              variant={status.trend === "down" ? "success" : "outline"}
+              variant={status?.trend === "down" ? "success" : "outline"}
               size="lg"
               fullWidth
             >
-              {status.trend === "down" ? "지금 예약하기" : "예약하러 가기"}
+              {price.deepLinkKind === "search" ? "아고다에서 이 호텔 찾기" : "아고다에서 예약하기"}
             </LinkButton>
             <p className="text-center text-caption text-ink-muted">
-              Agoda에서 예약 · 실제 연동 전 mock 링크입니다.
+              {price.deepLinkKind === "search"
+                ? "아고다 검색 결과로 이동해요 · 목록에서 이 호텔을 다시 찾아주세요."
+                : price.deepLinkKind === "detail"
+                  ? "아고다 쿠폰 등으로 실제 결제가가 더 낮을 수 있어요."
+                  : "Agoda에서 예약 · 실제 연동 전 mock 링크입니다."}
             </p>
           </>
         )}

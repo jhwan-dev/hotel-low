@@ -5,7 +5,9 @@ import type {
   HotelSearchParams,
   HotelSearchResponse,
   HotelSearchResult,
+  PartySize,
   PriceHistoryRangeDays,
+  RoomPrice,
 } from "@/types/hotel";
 import { mapContentToHotel, mapPropertyToRoomPrice } from "./mapper";
 import type { AgodaRepository } from "./repository";
@@ -37,7 +39,11 @@ export class AgodaHotelProvider implements HotelProvider {
   ): Promise<HotelSearchResult[]> {
     if (entries.length === 0) return [];
 
-    const agodaHotelIds = entries.map((e) => e.agodaHotelId);
+    // AgodaRepository's wire types are specifically Agoda's own numeric hotel
+    // id — HotelCatalogEntry.providerHotelId is a generic string (so other
+    // providers' opaque ids, e.g. SerpApi's property_token, fit too), so
+    // convert back at this Agoda-specific boundary.
+    const agodaHotelIds = entries.map((e) => Number(e.providerHotelId));
     const [contents, availability] = await Promise.all([
       this.repository.getHotelContent(agodaHotelIds),
       this.repository.searchAvailability({
@@ -57,8 +63,9 @@ export class AgodaHotelProvider implements HotelProvider {
 
     const results: HotelSearchResult[] = [];
     for (const entry of entries) {
-      const content = contents.find((c) => c.hotelId === entry.agodaHotelId);
-      const property = availability.properties.find((p) => p.propertyId === entry.agodaHotelId);
+      const entryAgodaHotelId = Number(entry.providerHotelId);
+      const content = contents.find((c) => c.hotelId === entryAgodaHotelId);
+      const property = availability.properties.find((p) => p.propertyId === entryAgodaHotelId);
       if (!content || !property) continue;
 
       const price = mapPropertyToRoomPrice(
@@ -78,17 +85,23 @@ export class AgodaHotelProvider implements HotelProvider {
   }
 
   async search(params: HotelSearchParams): Promise<HotelSearchResponse> {
-    const entries = this.catalog.findByDestination(params.destination);
+    const entries = await this.catalog.findByDestination(params.destination);
     const results = await this.resolve(entries, params);
     return { params, results, totalCount: results.length };
   }
 
   async getHotelById(id: string, params: HotelSearchParams): Promise<HotelSearchResult | null> {
-    const entry = this.catalog.findByAppHotelId(id);
+    const entry = await this.catalog.findByAppHotelId(id);
     if (!entry) return null;
 
     const [result] = await this.resolve([entry], params);
     return result ?? null;
+  }
+
+  /** Mock/Agoda mode has no separate "live" vs "stored" distinction — every getHotelById call already fabricates a fresh quote, so this just reuses it. */
+  async fetchLivePrice(id: string, params: HotelSearchParams): Promise<RoomPrice | null> {
+    const result = await this.getHotelById(id, params);
+    return result?.price ?? null;
   }
 
   async getPriceHistory(
@@ -96,7 +109,8 @@ export class AgodaHotelProvider implements HotelProvider {
     checkIn: string,
     checkOut: string,
     days: PriceHistoryRangeDays,
+    partySize?: PartySize,
   ) {
-    return this.historyRepository.getHistory(hotelId, checkIn, checkOut, days);
+    return this.historyRepository.getHistory(hotelId, checkIn, checkOut, days, partySize);
   }
 }

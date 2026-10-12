@@ -7,8 +7,15 @@ export interface PriceEventInput {
   currentTotal: number;
   /** Total stay price at the previous check, or null if this is the first check for this stay. */
   previousTotal: number | null;
-  /** Trailing 30 days of total stay prices for this exact stay, oldest first. */
-  last30DaysTotal: PricePoint[];
+  /**
+   * Trailing ~30 days of total stay prices for this exact stay, oldest
+   * first — NOT including today's own point. The caller resolves whether
+   * today is already present in its data source (the mock generator always
+   * includes it, a real history read before today's price is recorded
+   * never does) and passes only prior days, so this function doesn't have
+   * to guess.
+   */
+  priorDaysTotal: PricePoint[];
   targetPrice: number;
   notifyOnAnyDrop: boolean;
   notifyOnNewLow: boolean;
@@ -27,7 +34,7 @@ export interface DetectedPriceEvent {
  * happens to be a new 30-day low and clears the target price).
  */
 export function detectPriceEvents(input: PriceEventInput): DetectedPriceEvent[] {
-  const { currentTotal, previousTotal, last30DaysTotal, targetPrice, notifyOnAnyDrop, notifyOnNewLow } =
+  const { currentTotal, previousTotal, priorDaysTotal, targetPrice, notifyOnAnyDrop, notifyOnNewLow } =
     input;
   const events: DetectedPriceEvent[] = [];
 
@@ -43,13 +50,11 @@ export function detectPriceEvents(input: PriceEventInput): DetectedPriceEvent[] 
     events.push({ type: "target_reached", message: "목표 가격 이하로 내려갔어요." });
   }
 
-  // Compare against the *prior* days only (excluding today's own point) and
-  // require a strictly lower price — otherwise a price that's simply sitting
-  // flat at an already-recorded low re-triggers "new low" every day it stays
-  // there, which isn't actually a new record.
-  if (notifyOnNewLow && last30DaysTotal.length > 1) {
-    const priorDays = last30DaysTotal.slice(0, -1);
-    const { min: priorMin } = priceStats(priorDays);
+  // Require a strictly lower price than every prior day — otherwise a price
+  // that's simply sitting flat at an already-recorded low re-triggers "new
+  // low" every day it stays there, which isn't actually a new record.
+  if (notifyOnNewLow && priorDaysTotal.length > 0) {
+    const { min: priorMin } = priceStats(priorDaysTotal);
     if (currentTotal < priorMin) {
       events.push({ type: "new_low", message: "최근 30일 중 최저가를 갱신했어요." });
     }

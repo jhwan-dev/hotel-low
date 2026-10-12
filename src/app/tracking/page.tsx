@@ -67,8 +67,8 @@ export default async function TrackingPage() {
           {items.map((item) => (
             <TrackedHotelCard
               key={`${item.settings.hotelId}-${item.settings.checkIn}-${item.settings.checkOut}`}
-              hotel={item.result.hotel}
-              price={item.result.price}
+              hotel={item.hotel}
+              price={item.price}
               settings={item.settings}
               previousTotalPrice={item.previousTotalPrice}
               changePercent={item.changePercent}

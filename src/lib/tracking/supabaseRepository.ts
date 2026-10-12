@@ -1,13 +1,21 @@
 import "server-only";
 
+import { todayISO } from "@/lib/date";
 import type { HotelCatalog } from "@/lib/hotels/catalog";
-import { hotelProvider } from "@/lib/hotels";
+import { hotelProvider, priceHistoryRepository } from "@/lib/hotels";
+import { getSerpApiDailyLimit, isSerpApiConfigured } from "@/lib/hotels/serpapi/env";
+import { tryConsumeDailyCall } from "@/lib/serpapi/callBudget";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { ensureHotelRow, findHotelRowId, getHotelProviderRef } from "@/lib/supabase/hotelsTable";
+import {
+  ensureHotelRow,
+  findHotelRowId,
+  getHotelProviderRef,
+  updateAgodaPriceStatus,
+} from "@/lib/supabase/hotelsTable";
 import type { Currency } from "@/types/hotel";
 import type { PriceTrackingSettings } from "@/types/tracking";
-import type { TrackedHotelsRepository, TrackingInput } from "./repository";
+import { TrackingRejectedError, type TrackedHotelsRepository, type TrackingInput } from "./repository";
 
 interface TrackedHotelRow {
   check_in: string;
@@ -51,10 +59,10 @@ export class SupabaseTrackedHotelsRepository implements TrackedHotelsRepository 
   constructor(private readonly catalog: HotelCatalog) {}
 
   private async resolveHotelRowId(hotelId: string): Promise<string | null> {
-    const entry = this.catalog.findByAppHotelId(hotelId);
+    const entry = await this.catalog.findByAppHotelId(hotelId);
     if (!entry) return null;
     const supabase = await createClient();
-    return findHotelRowId(supabase, "agoda", entry.agodaHotelId);
+    return findHotelRowId(supabase, "agoda", entry.providerHotelId);
   }
 
   async findActive(
@@ -95,7 +103,7 @@ export class SupabaseTrackedHotelsRepository implements TrackedHotelsRepository 
     for (const row of data) {
       const ref = await getHotelProviderRef(supabase, row.hotel_id);
       if (!ref || ref.provider !== "agoda") continue;
-      const entry = this.catalog.findByAgodaHotelId(Number(ref.providerHotelId));
+      const entry = await this.catalog.findByProviderHotelId(ref.providerHotelId);
       if (!entry) continue;
       results.push(toSettings(row, entry.appHotelId));
     }
@@ -103,28 +111,66 @@ export class SupabaseTrackedHotelsRepository implements TrackedHotelsRepository 
   }
 
   async upsert(userId: string, input: TrackingInput): Promise<PriceTrackingSettings> {
-    const entry = this.catalog.findByAppHotelId(input.hotelId);
+    const entry = await this.catalog.findByAppHotelId(input.hotelId);
     if (!entry) throw new Error(`Unknown hotel: ${input.hotelId}`);
 
-    const result = await hotelProvider.getHotelById(input.hotelId, {
+    const admin = createAdminClient();
+    // Syncs the catalog's current display data into `hotels` — a no-op
+    // write when this.catalog is already SupabaseHotelCatalog (same row,
+    // same data), but still needed when it's MockHotelCatalog (Supabase
+    // configured, SERPAPI_API_KEY isn't) since nothing else writes that row.
+    const hotelRowId = await ensureHotelRow(admin, {
+      provider: "agoda",
+      providerHotelId: entry.providerHotelId,
+      name: entry.name,
+      city: entry.city,
+      country: entry.country,
+      address: entry.address,
+      rating: entry.rating,
+      reviewCount: entry.reviewCount,
+      images: entry.images,
+      amenities: entry.amenities,
+    });
+
+    // Only spend from the shared daily budget when SerpApi is actually the
+    // live price source — under the mock/Agoda fallback, fetchLivePrice()
+    // below costs nothing real, so there's nothing to rate-limit.
+    if (isSerpApiConfigured()) {
+      const allowed = await tryConsumeDailyCall(getSerpApiDailyLimit());
+      if (!allowed) throw new TrackingRejectedError("잠시 후 다시 시도해주세요");
+    }
+
+    const livePrice = await hotelProvider.fetchLivePrice(input.hotelId, {
       destination: "",
       checkIn: input.checkIn,
       checkOut: input.checkOut,
+      adults: input.adults,
+      children: input.children,
+      rooms: input.rooms,
     });
-    if (!result) throw new Error(`Unknown hotel: ${input.hotelId}`);
 
-    const admin = createAdminClient();
-    const hotelRowId = await ensureHotelRow(admin, {
-      provider: "agoda",
-      providerHotelId: entry.agodaHotelId,
-      name: result.hotel.name,
-      city: result.hotel.location.city,
-      country: result.hotel.location.country,
-      address: result.hotel.location.address,
-      rating: result.hotel.rating,
-      reviewCount: result.hotel.reviewCount,
-      images: result.hotel.images,
-      amenities: result.hotel.amenities,
+    await updateAgodaPriceStatus(
+      admin,
+      hotelRowId,
+      livePrice ? "available" : "unavailable",
+      todayISO(),
+    );
+
+    if (!livePrice) {
+      throw new TrackingRejectedError("이 숙소는 현재 아고다 가격을 확인할 수 없어요");
+    }
+
+    await priceHistoryRepository.recordPrice({
+      hotelId: input.hotelId,
+      checkIn: input.checkIn,
+      checkOut: input.checkOut,
+      adults: input.adults,
+      children: input.children,
+      rooms: input.rooms,
+      price: livePrice.nightlyPrice,
+      currency: livePrice.currency,
+      provider: livePrice.provider,
+      bookingUrl: livePrice.deepLink,
     });
 
     const supabase = await createClient();

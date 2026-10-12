@@ -23,6 +23,27 @@ export interface TrackedHotelForCheck {
 }
 
 /**
+ * Deactivates every active tracked_hotels row whose stay has already
+ * started as of `beforeDateISO` (the check-in date itself counts as
+ * started — `lt`, not `lte`, since a stay checking in today is still
+ * current). Called once at the top of checkPriceAlerts(), before listing,
+ * so a stale tracking is both turned off *and* excluded from this run —
+ * same admin-client/RLS-bypass reasoning as listAllActiveTrackedHotels.
+ * Returns how many rows it turned off, for logging.
+ */
+export async function deactivateExpiredTrackedHotels(beforeDateISO: string): Promise<number> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("tracked_hotels")
+    .update({ is_active: false })
+    .lt("check_in", beforeDateISO)
+    .eq("is_active", true)
+    .select("id");
+  if (error) throw error;
+  return data?.length ?? 0;
+}
+
+/**
  * Every active tracked_hotels row, across every user — only the system
  * price-check job needs this. Unlike everything in
  * src/lib/tracking/supabaseRepository.ts, this deliberately bypasses RLS via
@@ -44,7 +65,7 @@ export async function listAllActiveTrackedHotels(): Promise<TrackedHotelForCheck
   for (const row of data) {
     const ref = await getHotelProviderRef(admin, row.hotel_id);
     if (!ref || ref.provider !== "agoda") continue;
-    const entry = hotelCatalog.findByAgodaHotelId(Number(ref.providerHotelId));
+    const entry = await hotelCatalog.findByProviderHotelId(ref.providerHotelId);
     if (!entry) continue;
 
     results.push({
