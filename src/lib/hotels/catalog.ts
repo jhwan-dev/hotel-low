@@ -24,6 +24,10 @@ export interface HotelCatalogEntry {
   aliases: string[];
   /** Agoda's Content API has no free-text description field — this is our own editorial copy, stored locally. */
   description: string;
+  /** Agoda's own numeric hotel id, decoded from a cached SerpApi response's pcurl — see scripts/fill-agoda-hid.ts. Only the search-results fallback link needs it (buildBookingUrl in src/lib/hotels/serpapi/mapper.ts); undefined/null in mock mode. */
+  agodaHid?: string | null;
+  /** Path portion of Agoda's real detail page (no leading slash, no locale prefix) — filled in by hand, see scripts/import-agoda-detail-urls.ts. Undefined/null in mock mode or before someone's filled it in. */
+  agodaDetailPath?: string | null;
 }
 
 /**

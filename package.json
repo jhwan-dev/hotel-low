@@ -9,7 +9,10 @@
     "lint": "eslint",
     "verify:serpapi": "tsx --env-file=.env.local scripts/verify-serpapi-hotels.ts",
     "verify:coverage": "tsx --env-file=.env.local scripts/verify-agoda-coverage.ts",
-    "seed:catalog": "tsx --env-file=.env.local scripts/seed-hotel-catalog.ts"
+    "seed:catalog": "tsx --env-file=.env.local scripts/seed-hotel-catalog.ts",
+    "fill:agoda-hid": "tsx --env-file=.env.local scripts/fill-agoda-hid.ts",
+    "export:agoda-urls": "tsx --env-file=.env.local scripts/export-agoda-url-template.ts",
+    "import:agoda-urls": "tsx --env-file=.env.local scripts/import-agoda-detail-urls.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.5",

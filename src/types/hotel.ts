@@ -34,6 +34,8 @@ export interface RoomPrice {
   totalPrice: number;
   /** Populated once a real booking provider (Agoda/Booking.com) is connected. */
   deepLink?: string;
+  /** "detail" = deepLink goes straight to Agoda's own page for this hotel; "search" = it only lands on Agoda's search results for the city (see buildBookingUrl in src/lib/hotels/serpapi/mapper.ts). Drives which button label the UI shows. */
+  deepLinkKind?: "detail" | "search";
   /** Rooms left at this rate — undefined when the provider didn't return it. */
   remainingRooms?: number;
   /** When this price was actually observed. Set on a stored/last-known price (search/getHotelById under the SerpApi provider never call a live API — see HotelProvider.fetchLivePrice); omitted for an always-fresh mock/live quote. */

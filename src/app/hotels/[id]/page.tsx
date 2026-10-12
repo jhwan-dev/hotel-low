@@ -202,10 +202,14 @@ export default async function HotelDetailPage(props: PageProps<"/hotels/[id]">) 
               size="lg"
               fullWidth
             >
-              {status?.trend === "down" ? "지금 예약하기" : "예약하러 가기"}
+              {price.deepLinkKind === "search" ? "아고다에서 이 호텔 찾기" : "아고다에서 예약하기"}
             </LinkButton>
             <p className="text-center text-caption text-ink-muted">
-              Agoda에서 예약 · 실제 연동 전 mock 링크입니다.
+              {price.deepLinkKind === "search"
+                ? "아고다 검색 결과로 이동해요 · 목록에서 이 호텔을 다시 찾아주세요."
+                : price.deepLinkKind === "detail"
+                  ? "아고다 쿠폰 등으로 실제 결제가가 더 낮을 수 있어요."
+                  : "Agoda에서 예약 · 실제 연동 전 mock 링크입니다."}
             </p>
           </>
         )}

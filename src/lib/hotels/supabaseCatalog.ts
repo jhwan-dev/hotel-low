@@ -6,7 +6,7 @@ import type { HotelCatalog, HotelCatalogEntry } from "./catalog";
 const PROVIDER = "agoda";
 
 const SELECT_COLUMNS =
-  "id, provider_hotel_id, name, city, country, address, rating, review_count, images, amenities, description";
+  "id, provider_hotel_id, name, city, country, address, rating, review_count, images, amenities, description, agoda_hid, agoda_detail_path";
 
 interface HotelRow {
   id: string;
@@ -20,6 +20,8 @@ interface HotelRow {
   images: string[];
   amenities: string[];
   description: string | null;
+  agoda_hid: string | null;
+  agoda_detail_path: string | null;
 }
 
 function toEntry(row: HotelRow): HotelCatalogEntry {
@@ -38,6 +40,8 @@ function toEntry(row: HotelRow): HotelCatalogEntry {
     // server-side via findByDestination's ilike filter instead.
     aliases: [],
     description: row.description ?? "",
+    agodaHid: row.agoda_hid,
+    agodaDetailPath: row.agoda_detail_path,
   };
 }
 

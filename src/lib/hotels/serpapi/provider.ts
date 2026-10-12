@@ -12,7 +12,7 @@ import type {
   RoomPrice,
 } from "@/types/hotel";
 import { getPropertyDetails } from "./client";
-import { mapDetailToRoomPrice } from "./mapper";
+import { buildBookingUrl, mapDetailToRoomPrice } from "./mapper";
 
 const DEFAULT_ROOMS = 1;
 const DEFAULT_ADULTS = 2;
@@ -70,6 +70,10 @@ export class SerpApiHotelProvider implements HotelProvider {
     if (!latest) return { hotel, price: null };
 
     const nights = nightsBetween(params.checkIn, params.checkOut);
+    const booking = buildBookingUrl(
+      { hid: entry.agodaHid, detailPath: entry.agodaDetailPath },
+      { ...partySize, checkIn: params.checkIn, checkOut: params.checkOut, childrenAges: params.childrenAges },
+    );
     const price: RoomPrice = {
       hotelId: entry.appHotelId,
       provider: latest.provider,
@@ -80,6 +84,8 @@ export class SerpApiHotelProvider implements HotelProvider {
       nightlyPrice: latest.nightlyPrice,
       totalPrice: latest.nightlyPrice * nights * partySize.rooms,
       checkedAt: latest.checkedAt,
+      deepLink: booking?.url,
+      deepLinkKind: booking?.kind,
     };
     return { hotel, price };
   }
@@ -113,7 +119,11 @@ export class SerpApiHotelProvider implements HotelProvider {
     const mapped = mapDetailToRoomPrice(detail, id, params.checkIn, params.checkOut, partySize.rooms);
     if (!mapped) return null;
 
-    return { ...mapped, checkedAt: todayISO() };
+    const booking = buildBookingUrl(
+      { hid: entry.agodaHid, detailPath: entry.agodaDetailPath },
+      { ...partySize, checkIn: params.checkIn, checkOut: params.checkOut, childrenAges: params.childrenAges },
+    );
+    return { ...mapped, checkedAt: todayISO(), deepLink: booking?.url, deepLinkKind: booking?.kind };
   }
 
   async getPriceHistory(
