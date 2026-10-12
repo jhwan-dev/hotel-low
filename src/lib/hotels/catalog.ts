@@ -28,6 +28,9 @@ export interface HotelCatalogEntry {
   agodaHid?: string | null;
   /** Path portion of Agoda's real detail page (no leading slash, no locale prefix) — filled in by hand, see scripts/import-agoda-detail-urls.ts. Undefined/null in mock mode or before someone's filled it in. */
   agodaDetailPath?: string | null;
+  /** From SerpApi's list response (gps_coordinates) at seed time — see scripts/seed-hotel-catalog.ts. Null for the original 22-hotel catalog, seeded before this column existed. */
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 /**

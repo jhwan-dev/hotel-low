@@ -18,16 +18,17 @@ const PROVIDER = "agoda";
  *     "오사카", not "Osaka") still match, via CITY_KOREAN_ALIASES below.
  * Add the new city here (and to CITY_KOREAN_ALIASES) when seeding one.
  */
-const CATALOG_CITIES = ["Osaka", "Tokyo", "Danang"] as const;
+const CATALOG_CITIES = ["Osaka", "Tokyo", "Danang", "Fukuoka"] as const;
 
 const CITY_KOREAN_ALIASES: Record<string, string> = {
   Osaka: "오사카",
   Tokyo: "도쿄",
   Danang: "다낭",
+  Fukuoka: "후쿠오카",
 };
 
 const SELECT_COLUMNS =
-  "id, provider_hotel_id, name, city, country, address, rating, review_count, images, amenities, description, agoda_hid, agoda_detail_path";
+  "id, provider_hotel_id, name, city, country, address, rating, review_count, images, amenities, description, agoda_hid, agoda_detail_path, latitude, longitude";
 
 interface HotelRow {
   id: string;
@@ -43,6 +44,8 @@ interface HotelRow {
   description: string | null;
   agoda_hid: string | null;
   agoda_detail_path: string | null;
+  latitude: number | null;
+  longitude: number | null;
 }
 
 function toEntry(row: HotelRow): HotelCatalogEntry {
@@ -63,6 +66,8 @@ function toEntry(row: HotelRow): HotelCatalogEntry {
     description: row.description ?? "",
     agodaHid: row.agoda_hid,
     agodaDetailPath: row.agoda_detail_path,
+    latitude: row.latitude,
+    longitude: row.longitude,
   };
 }
 

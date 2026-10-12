@@ -87,6 +87,7 @@ export default async function HotelDetailPage(props: PageProps<"/hotels/[id]">) 
               src={src}
               alt={`${hotel.name} 사진 ${i + 1}`}
               fill
+              unoptimized
               sizes="(min-width: 640px) 25vw, 50vw"
               className="object-cover"
               priority={i === 0}

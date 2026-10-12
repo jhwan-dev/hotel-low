@@ -97,7 +97,7 @@ export function TrackedHotelCard({
         href={detailHref}
         className="relative w-28 shrink-0 overflow-hidden rounded-l-card sm:w-36"
       >
-        <Image src={hotel.images[0]} alt={hotel.name} fill sizes="144px" className="object-cover" />
+        <Image src={hotel.images[0]} alt={hotel.name} fill unoptimized sizes="144px" className="object-cover" />
         <CardRibbon label="추적 중" tone="tracking" />
       </Link>
       <CardBody className="flex-1 gap-1.5 p-3">
