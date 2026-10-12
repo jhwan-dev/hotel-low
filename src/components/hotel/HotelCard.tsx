@@ -1,12 +1,11 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ClockIcon, StarIcon } from "@/components/icons";
-import { Card, CardBody, CardFooter, CardMedia } from "@/components/ui";
+import { Card, CardBody, CardFooter, CardMedia, LinkButton } from "@/components/ui";
 import { formatRelativeDays } from "@/lib/date";
 import { formatPrice, formatRating } from "@/lib/format";
 import { stayQueryToSearchParams, type StayQuery } from "@/lib/search/stay-query";
 import type { HotelSearchResult } from "@/types/hotel";
-import { TrackHotelButton } from "./TrackHotelButton";
 
 export interface HotelCardProps {
   result: HotelSearchResult;
@@ -66,7 +65,13 @@ export function HotelCard({ result, stay }: HotelCardProps) {
         <span className="text-caption text-ink-muted">
           {hotel.amenities[0]}
         </span>
-        <TrackHotelButton size="sm" />
+        {/* Same tracking flow as the hotel detail page, not a separate one
+            — `startTracking=1` auto-opens PriceTrackingCta's sheet there
+            (see hotels/[id]/page.tsx's autoOpenTrackingSheet), so this card
+            never needs its own copy of the login/price/settings logic. */}
+        <LinkButton href={`${detailHref}&startTracking=1`} size="sm">
+          가격 추적
+        </LinkButton>
       </CardFooter>
     </Card>
   );

@@ -141,18 +141,29 @@ export class SupabasePriceHistoryRepository implements PriceHistoryRepository {
     }
     const { data, error } = await query.order("checked_at", { ascending: true });
     if (error) throw error;
-    if (!data || data.length === 0) return this.fallback.getHistory(hotelId, checkIn, checkOut, days);
+    if (data && data.length > 0) {
+      return {
+        hotelId,
+        checkIn,
+        checkOut,
+        currency: data[0].currency as Currency,
+        points: data.map((row) => ({
+          checkedAt: String(row.checked_at).slice(0, 10),
+          price: Number(row.price),
+        })),
+      };
+    }
 
-    return {
-      hotelId,
-      checkIn,
-      checkOut,
-      currency: data[0].currency as Currency,
-      points: data.map((row) => ({
-        checkedAt: String(row.checked_at).slice(0, 10),
-        price: Number(row.price),
-      })),
-    };
+    // No real rows for this exact stay yet. The mock generator only knows
+    // about mockHotels (the old mock catalog) — it correctly returns
+    // something for one of those (kept working below), but null for a real
+    // SerpApi-catalog hotel. For a SerpApi hotel, "nobody's checked yet" is
+    // a normal, expected state (search/detail pages never call SerpApi
+    // themselves — see HotelProvider.fetchLivePrice), not a reason for the
+    // caller to treat this hotel as not found — that was the actual bug
+    // behind every never-tracked catalog hotel's detail page 404ing.
+    const mockFallback = await this.fallback.getHistory(hotelId, checkIn, checkOut, days);
+    return mockFallback ?? { hotelId, checkIn, checkOut, currency: "KRW", points: [] };
   }
 
   /** Writes always go through the admin client — hotel_price_history has no INSERT policy for anon/authenticated (see supabase/migrations/0001_init.sql), only service_role. */

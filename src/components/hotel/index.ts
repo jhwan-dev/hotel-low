@@ -1,6 +1,5 @@
 export * from "./HotelCard";
 export * from "./HotelResultsGrid";
-export * from "./TrackHotelButton";
 export * from "./PriceHistoryChart";
 export * from "./PriceTrackingSheet";
 export * from "./PriceTrackingCta";
