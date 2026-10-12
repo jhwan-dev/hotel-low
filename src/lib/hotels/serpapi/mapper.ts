@@ -35,6 +35,35 @@ function findAgoda(entries: MergedPriceEntry[]): MergedPriceEntry | null {
   return entries.find((e) => e.source.toLowerCase() === "agoda") ?? null;
 }
 
+/** Only present in the detail response — list responses have no address field at all. Null (not "") when absent, so callers can tell "nothing to backfill with" apart from "explicitly blank". */
+export function extractAddress(detail: SerpApiPropertyDetails): string | null {
+  return detail.address && detail.address.length > 0 ? detail.address : null;
+}
+
+/**
+ * Agoda's own numeric hotel id, decoded out of the Agoda price entry's
+ * `link` (a Google-ads redirect whose `pcurl` query param is Agoda's own
+ * partnersearch.aspx URL, which carries `hid`) — same decode
+ * scripts/fill-agoda-hid.ts does from a cached detail response, just run
+ * against a live one here instead.
+ */
+export function extractAgodaHid(detail: SerpApiPropertyDetails): string | null {
+  const agoda = [...(detail.prices ?? []), ...(detail.featured_prices ?? [])].find(
+    (item) => item.source.toLowerCase() === "agoda",
+  );
+  if (!agoda?.link) return null;
+
+  try {
+    const outer = new URL(agoda.link);
+    const pcurl = outer.searchParams.get("pcurl");
+    if (!pcurl) return null;
+    const inner = new URL(pcurl);
+    return inner.searchParams.get("hid");
+  } catch {
+    return null;
+  }
+}
+
 export type BookingLinkKind = "detail" | "search";
 
 export interface BookingLink {

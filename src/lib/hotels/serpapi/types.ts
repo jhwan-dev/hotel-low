@@ -23,6 +23,8 @@ export interface SerpApiPriceEntry {
 export interface SerpApiPropertyDetails {
   property_token: string;
   name?: string;
+  /** Only present in the detail response — list/search responses have no address field at all. */
+  address?: string;
   prices?: SerpApiPriceEntry[];
   featured_prices?: SerpApiPriceEntry[];
 }

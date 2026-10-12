@@ -12,7 +12,7 @@ import type {
   RoomPrice,
 } from "@/types/hotel";
 import { getPropertyDetails } from "./client";
-import { buildBookingUrl, mapDetailToRoomPrice } from "./mapper";
+import { buildBookingUrl, extractAddress, extractAgodaHid, mapDetailToRoomPrice } from "./mapper";
 
 const DEFAULT_ROOMS = 1;
 const DEFAULT_ADULTS = 2;
@@ -123,7 +123,14 @@ export class SerpApiHotelProvider implements HotelProvider {
       { hid: entry.agodaHid, detailPath: entry.agodaDetailPath },
       { ...partySize, checkIn: params.checkIn, checkOut: params.checkOut, childrenAges: params.childrenAges },
     );
-    return { ...mapped, checkedAt: todayISO(), deepLink: booking?.url, deepLinkKind: booking?.kind };
+    return {
+      ...mapped,
+      checkedAt: todayISO(),
+      deepLink: booking?.url,
+      deepLinkKind: booking?.kind,
+      detailAddress: extractAddress(detail),
+      detailAgodaHid: extractAgodaHid(detail),
+    };
   }
 
   async getPriceHistory(

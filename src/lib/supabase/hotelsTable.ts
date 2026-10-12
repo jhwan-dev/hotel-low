@@ -93,3 +93,37 @@ export async function updateAgodaPriceStatus(
     .eq("id", hotelRowId);
   if (error) throw error;
 }
+
+/**
+ * Fills hotels.address/agoda_hid from a just-fetched live detail response —
+ * see RoomPrice.detailAddress/detailAgodaHid (SerpApiHotelProvider.
+ * fetchLivePrice), called right after tracking-start's or the price-check
+ * cron's one-time fetch, so this never costs an extra SerpApi request.
+ * Reads first and only includes a column in the UPDATE if it's currently
+ * empty — never overwrites an existing value, including the ones filled in
+ * by hand for the original 22 hotels (or one some other process set in the
+ * meantime). A no-op if there's nothing to offer or nothing to fill.
+ */
+export async function backfillHotelDetails(
+  admin: SupabaseClient,
+  hotelRowId: string,
+  detail: { address: string | null; agodaHid: string | null },
+): Promise<void> {
+  if (!detail.address && !detail.agodaHid) return;
+
+  const { data, error: selectError } = await admin
+    .from("hotels")
+    .select("address, agoda_hid")
+    .eq("id", hotelRowId)
+    .maybeSingle();
+  if (selectError) throw selectError;
+  if (!data) return;
+
+  const patch: { address?: string; agoda_hid?: string } = {};
+  if (detail.address && !data.address) patch.address = detail.address;
+  if (detail.agodaHid && !data.agoda_hid) patch.agoda_hid = detail.agodaHid;
+  if (Object.keys(patch).length === 0) return;
+
+  const { error } = await admin.from("hotels").update(patch).eq("id", hotelRowId);
+  if (error) throw error;
+}

@@ -8,6 +8,7 @@ import { tryConsumeDailyCall } from "@/lib/serpapi/callBudget";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import {
+  backfillHotelDetails,
   ensureHotelRow,
   findHotelRowId,
   getHotelProviderRef,
@@ -165,6 +166,14 @@ export class SupabaseTrackedHotelsRepository implements TrackedHotelsRepository 
     if (!livePrice) {
       throw new TrackingRejectedError("이 숙소는 현재 아고다 가격을 확인할 수 없어요");
     }
+
+    // Opportunistic, zero-extra-call catalog backfill from the detail
+    // response this fetchLivePrice call already made — never overwrites a
+    // value that's already there (including the ones filled in by hand).
+    await backfillHotelDetails(admin, hotelRowId, {
+      address: livePrice.detailAddress ?? null,
+      agodaHid: livePrice.detailAgodaHid ?? null,
+    });
 
     await priceHistoryRepository.recordPrice({
       hotelId: input.hotelId,

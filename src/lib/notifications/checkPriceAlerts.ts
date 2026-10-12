@@ -6,7 +6,9 @@ import { getSerpApiCronReserve, getSerpApiDailyLimit, isSerpApiConfigured } from
 import { daysBetween, todayISO, todayISOInSeoul } from "@/lib/date";
 import { toTotalPoints } from "@/lib/hotels/price-history";
 import { tryConsumeDailyCall } from "@/lib/serpapi/callBudget";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { backfillHotelDetails } from "@/lib/supabase/hotelsTable";
 import { trackedHotelsRepository } from "@/lib/tracking";
 import type { PriceTrackingSettings } from "@/types/tracking";
 import { detectPriceEvents } from "./detectPriceEvents";
@@ -134,6 +136,22 @@ export async function checkPriceAlerts(): Promise<PriceCheckSummary> {
       continue;
     }
     if (!price) continue; // Agoda has no quote today — skip record+notify, keep the tracking as-is
+
+    // Opportunistic, zero-extra-call catalog backfill from the detail
+    // response the fetchLivePrice call above already made — never
+    // overwrites a value that's already there. Isolated in its own
+    // try/catch so a backfill hiccup can't take the rest of this group's
+    // recording/notification work down with it.
+    if (isSupabaseConfigured() && (price.detailAddress || price.detailAgodaHid)) {
+      try {
+        await backfillHotelDetails(createAdminClient(), hotelId, {
+          address: price.detailAddress ?? null,
+          agodaHid: price.detailAgodaHid ?? null,
+        });
+      } catch (err) {
+        console.error(`checkPriceAlerts: detail backfill failed for ${hotelId}`, err);
+      }
+    }
 
     const totalPoints = toTotalPoints(history?.points ?? [], price.nights, rooms);
     const lastPoint = totalPoints.length > 0 ? totalPoints[totalPoints.length - 1] : null;

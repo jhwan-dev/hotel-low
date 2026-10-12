@@ -108,7 +108,8 @@ export default async function HotelDetailPage(props: PageProps<"/hotels/[id]">) 
           </span>
         </div>
         <p className="text-small text-ink-muted">
-          {hotel.location.city}, {hotel.location.country} · {hotel.location.address}
+          {hotel.location.city}, {hotel.location.country}
+          {hotel.location.address && ` · ${hotel.location.address}`}
         </p>
       </div>
 

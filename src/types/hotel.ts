@@ -40,6 +40,17 @@ export interface RoomPrice {
   remainingRooms?: number;
   /** When this price was actually observed. Set on a stored/last-known price (search/getHotelById under the SerpApi provider never call a live API — see HotelProvider.fetchLivePrice); omitted for an always-fresh mock/live quote. */
   checkedAt?: string;
+  /**
+   * Catalog-metadata extracted from this same live detail response — not
+   * pricing data, just along for the ride since the call already happened.
+   * Only ever set by SerpApiHotelProvider.fetchLivePrice; callers decide
+   * whether/how to persist it (see backfillHotelDetails in
+   * src/lib/supabase/hotelsTable.ts), and only when the catalog doesn't
+   * already have a value, so a live fetch can never overwrite one filled
+   * in by hand. Null when this fetch didn't turn up a value either.
+   */
+  detailAddress?: string | null;
+  detailAgodaHid?: string | null;
 }
 
 export interface PricePoint {
