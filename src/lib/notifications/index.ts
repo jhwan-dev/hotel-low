@@ -2,8 +2,9 @@ import "server-only";
 
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { MockNotificationRepository } from "./mockRepository";
+import { isFcmConfigured } from "./push/env";
 import type { NotificationRepository } from "./repository";
-import { InAppNotificationService } from "./service";
+import { InAppNotificationService, PushNotificationService } from "./service";
 import type { NotificationService } from "./service";
 import { SupabaseNotificationRepository } from "./supabaseRepository";
 
@@ -13,9 +14,12 @@ export const notificationRepository: NotificationRepository = isSupabaseConfigur
   ? new SupabaseNotificationRepository()
   : new MockNotificationRepository();
 
-// Swap point 2/2: delivery channel. Replace this line with a
-// WebPushNotificationService(notificationRepository, ...) once push is
-// wired up — every caller only ever imports `notificationService`.
-export const notificationService: NotificationService = new InAppNotificationService(
-  notificationRepository,
-);
+const inAppNotificationService = new InAppNotificationService(notificationRepository);
+
+// Swap point 2/2: delivery channel. Falls back to in-app-only until the FCM
+// service-account env vars (src/lib/notifications/push/env.ts) are set, so
+// this takes effect the moment Vercel's env vars are filled in — no code
+// change needed at that point.
+export const notificationService: NotificationService = isFcmConfigured()
+  ? new PushNotificationService(inAppNotificationService)
+  : inAppNotificationService;
