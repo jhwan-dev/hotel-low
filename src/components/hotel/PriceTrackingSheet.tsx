@@ -4,13 +4,14 @@ import { useEffect, useState } from "react";
 import { BottomSheet, Button, Checkbox, Input } from "@/components/ui";
 import { formatDateLabel } from "@/lib/date";
 import { formatPrice } from "@/lib/format";
+import { defaultTargetPrice } from "@/lib/tracking/targetPrice";
 import type { Currency } from "@/types/hotel";
 import type { PriceTrackingSettings } from "@/types/tracking";
 
-type TrackingFormValues = Pick<
-  PriceTrackingSettings,
-  "targetPrice" | "notifyOnAnyDrop" | "notifyOnNewLow"
->;
+type TrackingFormValues = Pick<PriceTrackingSettings, "notifyOnAnyDrop" | "notifyOnNewLow"> & {
+  /** Omitted in priceUnknown mode — the server picks a default once its own live check confirms a price. */
+  targetPrice?: number;
+};
 
 export interface PriceTrackingSheetProps {
   open: boolean;
@@ -25,13 +26,14 @@ export interface PriceTrackingSheetProps {
   currency: Currency;
   initial?: Partial<TrackingFormValues>;
   submitLabel?: string;
+  /** True for a hotel/stay nobody's ever checked a live price for — search/detail pages never call SerpApi themselves, so this is the normal state on first view. Skips the target-price step entirely: the live check that confirms a price only happens once, inside the same submit, so there's nothing to show a target against yet. */
+  priceUnknown?: boolean;
+  /** Shown inside the sheet (not behind it — BottomSheet is a full-screen overlay) so a rejection — rate limit, no Agoda price, invalid target — is actually visible while this is open. */
+  error?: string | null;
+  pending?: boolean;
 }
 
 const PRESET_DROPS = [5, 10, 15];
-
-function defaultTarget(currentPrice: number): number {
-  return Math.round((currentPrice * 0.9) / 1000) * 1000;
-}
 
 export function PriceTrackingSheet({
   open,
@@ -46,9 +48,12 @@ export function PriceTrackingSheet({
   currency,
   initial,
   submitLabel = "가격 추적 시작",
+  priceUnknown = false,
+  error,
+  pending = false,
 }: PriceTrackingSheetProps) {
   const [targetPrice, setTargetPrice] = useState(
-    initial?.targetPrice ?? defaultTarget(currentPrice),
+    initial?.targetPrice ?? defaultTargetPrice(currentPrice),
   );
   const [notifyOnAnyDrop, setNotifyOnAnyDrop] = useState(
     initial?.notifyOnAnyDrop ?? true,
@@ -59,18 +64,26 @@ export function PriceTrackingSheet({
 
   useEffect(() => {
     if (!open) return;
-    setTargetPrice(initial?.targetPrice ?? defaultTarget(currentPrice));
+    setTargetPrice(initial?.targetPrice ?? defaultTargetPrice(currentPrice));
     setNotifyOnAnyDrop(initial?.notifyOnAnyDrop ?? true);
     setNotifyOnNewLow(initial?.notifyOnNewLow ?? true);
     // Only re-sync when the sheet opens, not on every keystroke.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  const isValid = targetPrice > 0 && targetPrice < currentPrice;
+  const isValid = priceUnknown || (targetPrice > 0 && targetPrice < currentPrice);
   const errorText =
-    targetPrice > 0 && targetPrice >= currentPrice
+    !priceUnknown && targetPrice > 0 && targetPrice >= currentPrice
       ? "현재 가격보다 낮은 금액을 입력해주세요."
       : undefined;
+
+  function submit() {
+    onSubmit(
+      priceUnknown
+        ? { notifyOnAnyDrop: true, notifyOnNewLow: true }
+        : { targetPrice, notifyOnAnyDrop, notifyOnNewLow },
+    );
+  }
 
   return (
     <BottomSheet open={open} onClose={onClose} title="가격 추적 설정">
@@ -92,69 +105,72 @@ export function PriceTrackingSheet({
           </div>
         </div>
 
-        <div>
-          <span className="text-small text-ink-muted">현재 가격</span>
-          <p className="text-price-lg tabular-nums text-ink">
-            {formatPrice(currentPrice, currency)}
-          </p>
-        </div>
+        {priceUnknown ? (
+          <p className="text-body text-ink">가격이 떨어지면 알려드려요.</p>
+        ) : (
+          <>
+            <div>
+              <span className="text-small text-ink-muted">현재 가격</span>
+              <p className="text-price-lg tabular-nums text-ink">
+                {formatPrice(currentPrice, currency)}
+              </p>
+            </div>
 
-        <div className="flex flex-col gap-2">
-          <Input
-            label="목표 가격"
-            type="number"
-            inputMode="numeric"
-            step={1000}
-            min={0}
-            value={targetPrice}
-            onChange={(e) => setTargetPrice(Number(e.target.value) || 0)}
-            errorText={errorText}
-          />
-          <div className="flex gap-2">
-            {PRESET_DROPS.map((pct) => (
-              <button
-                key={pct}
-                type="button"
-                onClick={() =>
-                  setTargetPrice(
-                    Math.round((currentPrice * (1 - pct / 100)) / 1000) * 1000,
-                  )
-                }
-                className="rounded-full bg-surface-muted px-3 py-1.5 text-small font-semibold text-ink-muted hover:bg-primary-light hover:text-primary"
-              >
-                -{pct}%
-              </button>
-            ))}
-          </div>
-          {isValid && (
-            <p className="text-small text-ink-muted">
-              {formatPrice(targetPrice, currency)} 이하가 되면 알려주세요.
-            </p>
-          )}
-        </div>
+            <div className="flex flex-col gap-2">
+              <Input
+                label="목표 가격"
+                type="number"
+                inputMode="numeric"
+                step={1000}
+                min={0}
+                value={targetPrice}
+                onChange={(e) => setTargetPrice(Number(e.target.value) || 0)}
+                errorText={errorText}
+              />
+              <div className="flex gap-2">
+                {PRESET_DROPS.map((pct) => (
+                  <button
+                    key={pct}
+                    type="button"
+                    onClick={() =>
+                      setTargetPrice(
+                        Math.round((currentPrice * (1 - pct / 100)) / 1000) * 1000,
+                      )
+                    }
+                    className="rounded-full bg-surface-muted px-3 py-1.5 text-small font-semibold text-ink-muted hover:bg-primary-light hover:text-primary"
+                  >
+                    -{pct}%
+                  </button>
+                ))}
+              </div>
+              {isValid && (
+                <p className="text-small text-ink-muted">
+                  {formatPrice(targetPrice, currency)} 이하가 되면 알려주세요.
+                </p>
+              )}
+            </div>
 
-        <div className="flex flex-col">
-          <span className="pb-1 text-small font-medium text-ink">알림 받기</span>
-          <Checkbox
-            label="가격이 내려가면 알림"
-            description="이전보다 저렴해질 때마다 알려드려요."
-            checked={notifyOnAnyDrop}
-            onChange={(e) => setNotifyOnAnyDrop(e.target.checked)}
-          />
-          <Checkbox
-            label="최근 최저가 갱신 시 알림"
-            description="최근 90일 중 가장 쌀 때만 알려드려요."
-            checked={notifyOnNewLow}
-            onChange={(e) => setNotifyOnNewLow(e.target.checked)}
-          />
-        </div>
+            <div className="flex flex-col">
+              <span className="pb-1 text-small font-medium text-ink">알림 받기</span>
+              <Checkbox
+                label="가격이 내려가면 알림"
+                description="이전보다 저렴해질 때마다 알려드려요."
+                checked={notifyOnAnyDrop}
+                onChange={(e) => setNotifyOnAnyDrop(e.target.checked)}
+              />
+              <Checkbox
+                label="최근 최저가 갱신 시 알림"
+                description="최근 90일 중 가장 쌀 때만 알려드려요."
+                checked={notifyOnNewLow}
+                onChange={(e) => setNotifyOnNewLow(e.target.checked)}
+              />
+            </div>
+          </>
+        )}
 
-        <Button
-          size="lg"
-          fullWidth
-          disabled={!isValid}
-          onClick={() => onSubmit({ targetPrice, notifyOnAnyDrop, notifyOnNewLow })}
-        >
+        {error && <p className="text-small text-price-up">{error}</p>}
+
+        <Button size="lg" fullWidth disabled={!isValid || pending} onClick={submit}>
           {submitLabel}
         </Button>
       </div>

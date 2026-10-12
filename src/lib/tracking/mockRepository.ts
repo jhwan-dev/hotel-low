@@ -1,5 +1,7 @@
+import type { HotelProvider } from "@/types/hotel";
 import type { PriceTrackingSettings } from "@/types/tracking";
-import type { TrackedHotelsRepository, TrackingInput } from "./repository";
+import { defaultTargetPrice } from "./targetPrice";
+import { TrackingRejectedError, type TrackedHotelsRepository, type TrackingInput, type TrackingUpsertResult } from "./repository";
 
 function matches(row: PriceTrackingSettings, hotelId: string, checkIn: string, checkOut: string) {
   return row.hotelId === hotelId && row.checkIn === checkIn && row.checkOut === checkOut;
@@ -15,6 +17,8 @@ function matches(row: PriceTrackingSettings, hotelId: string, checkIn: string, c
 export class MockTrackedHotelsRepository implements TrackedHotelsRepository {
   private rows: PriceTrackingSettings[] = [];
 
+  constructor(private readonly provider: HotelProvider) {}
+
   async findActive(
     _userId: string,
     hotelId: string,
@@ -28,17 +32,37 @@ export class MockTrackedHotelsRepository implements TrackedHotelsRepository {
     return [...this.rows];
   }
 
-  async upsert(_userId: string, input: TrackingInput): Promise<PriceTrackingSettings> {
+  async upsert(_userId: string, input: TrackingInput): Promise<TrackingUpsertResult> {
+    // The mock/Agoda provider's fetchLivePrice() just delegates to
+    // getHotelById() and never returns null, unlike the real SerpApi
+    // provider — so this never hits the "no price at all" rejection, but
+    // still goes through the same live-check-then-validate shape so the two
+    // repositories behave identically from the caller's point of view.
+    const price = await this.provider.fetchLivePrice(input.hotelId, {
+      destination: "",
+      checkIn: input.checkIn,
+      checkOut: input.checkOut,
+      adults: input.adults,
+      children: input.children,
+      rooms: input.rooms,
+    });
+    if (!price) throw new TrackingRejectedError("이 숙소는 현재 가격을 확인할 수 없어요");
+
+    const targetPrice = input.targetPrice ?? defaultTargetPrice(price.totalPrice);
+    if (targetPrice <= 0 || targetPrice >= price.totalPrice) {
+      throw new TrackingRejectedError("목표 가격은 현재 가격보다 낮아야 해요");
+    }
+
     const index = this.rows.findIndex((r) =>
       matches(r, input.hotelId, input.checkIn, input.checkOut),
     );
-    const row: PriceTrackingSettings = { ...input };
+    const row: PriceTrackingSettings = { ...input, targetPrice };
     if (index >= 0) {
       this.rows[index] = row;
     } else {
       this.rows.push(row);
     }
-    return row;
+    return { settings: row, price };
   }
 
   async deactivate(

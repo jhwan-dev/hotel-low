@@ -1,4 +1,4 @@
-import { hotelCatalog } from "@/lib/hotels";
+import { hotelCatalog, hotelProvider } from "@/lib/hotels";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { MockTrackedHotelsRepository } from "./mockRepository";
 import type { TrackedHotelsRepository } from "./repository";
@@ -9,4 +9,4 @@ import { SupabaseTrackedHotelsRepository } from "./supabaseRepository";
 // (Server Actions, the hotel detail page) only ever sees TrackedHotelsRepository.
 export const trackedHotelsRepository: TrackedHotelsRepository = isSupabaseConfigured()
   ? new SupabaseTrackedHotelsRepository(hotelCatalog)
-  : new MockTrackedHotelsRepository();
+  : new MockTrackedHotelsRepository(hotelProvider);

@@ -57,7 +57,9 @@ export function TrackedHotelCard({
   }
 
   function submitSettings(
-    values: Pick<PriceTrackingSettings, "targetPrice" | "notifyOnAnyDrop" | "notifyOnNewLow">,
+    values: Pick<PriceTrackingSettings, "notifyOnAnyDrop" | "notifyOnNewLow"> & {
+      targetPrice?: number;
+    },
   ) {
     setError(null);
     startTransition(async () => {
@@ -75,7 +77,7 @@ export function TrackedHotelCard({
         setError(result.error);
         return;
       }
-      setCurrentSettings(result);
+      setCurrentSettings(result.settings);
       setSheetOpen(false);
     });
   }
@@ -127,8 +129,6 @@ export function TrackedHotelCard({
           </span>
         )}
 
-        {error && <p className="text-caption text-price-up">{error}</p>}
-
         <div className="mt-auto flex items-center justify-between gap-2 pt-1">
           {lastCheckedAt ? (
             <span className="inline-flex items-center gap-1 text-caption text-ink-muted">
@@ -167,6 +167,8 @@ export function TrackedHotelCard({
         initial={currentSettings}
         onSubmit={submitSettings}
         submitLabel="설정 저장"
+        error={error}
+        pending={isPending}
       />
     </Card>
   );

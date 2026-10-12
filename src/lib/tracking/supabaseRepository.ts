@@ -15,7 +15,13 @@ import {
 } from "@/lib/supabase/hotelsTable";
 import type { Currency } from "@/types/hotel";
 import type { PriceTrackingSettings } from "@/types/tracking";
-import { TrackingRejectedError, type TrackedHotelsRepository, type TrackingInput } from "./repository";
+import { defaultTargetPrice } from "./targetPrice";
+import {
+  TrackingRejectedError,
+  type TrackedHotelsRepository,
+  type TrackingInput,
+  type TrackingUpsertResult,
+} from "./repository";
 
 interface TrackedHotelRow {
   check_in: string;
@@ -110,7 +116,7 @@ export class SupabaseTrackedHotelsRepository implements TrackedHotelsRepository 
     return results;
   }
 
-  async upsert(userId: string, input: TrackingInput): Promise<PriceTrackingSettings> {
+  async upsert(userId: string, input: TrackingInput): Promise<TrackingUpsertResult> {
     const entry = await this.catalog.findByAppHotelId(input.hotelId);
     if (!entry) throw new Error(`Unknown hotel: ${input.hotelId}`);
 
@@ -173,6 +179,17 @@ export class SupabaseTrackedHotelsRepository implements TrackedHotelsRepository 
       bookingUrl: livePrice.deepLink,
     });
 
+    // input.targetPrice is omitted when the client didn't know the price
+    // yet at submit time (PriceTrackingSheet's priceUnknown mode) — now
+    // that this live check has confirmed one, pick the same default the
+    // sheet would have shown if it had known. Either way, re-validate
+    // server-side: the client's own check (targetPrice < currentPrice) is
+    // just UI guidance, not something this write should ever trust blindly.
+    const targetPrice = input.targetPrice ?? defaultTargetPrice(livePrice.totalPrice);
+    if (targetPrice <= 0 || targetPrice >= livePrice.totalPrice) {
+      throw new TrackingRejectedError("목표 가격은 현재 가격보다 낮아야 해요");
+    }
+
     const supabase = await createClient();
 
     // No ON CONFLICT here on purpose: the unique index on
@@ -198,7 +215,7 @@ export class SupabaseTrackedHotelsRepository implements TrackedHotelsRepository 
       adults: input.adults,
       children: input.children,
       rooms: input.rooms,
-      target_price: input.targetPrice,
+      target_price: targetPrice,
       currency: input.currency,
       notify_on_any_drop: input.notifyOnAnyDrop,
       notify_on_new_low: input.notifyOnNewLow,
@@ -219,7 +236,7 @@ export class SupabaseTrackedHotelsRepository implements TrackedHotelsRepository 
           .single();
     if (error) throw error;
 
-    return toSettings(data, input.hotelId);
+    return { settings: toSettings(data, input.hotelId), price: livePrice };
   }
 
   async deactivate(

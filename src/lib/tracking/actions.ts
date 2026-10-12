@@ -1,9 +1,8 @@
 "use server";
 
 import { getCurrentUser } from "@/lib/auth/getCurrentUser";
-import type { PriceTrackingSettings } from "@/types/tracking";
 import { trackedHotelsRepository } from "./index";
-import { TrackingRejectedError, type TrackingInput } from "./repository";
+import { TrackingRejectedError, type TrackingInput, type TrackingUpsertResult } from "./repository";
 
 export interface TrackingActionError {
   error: string;
@@ -11,7 +10,7 @@ export interface TrackingActionError {
 
 export async function startTracking(
   input: TrackingInput,
-): Promise<PriceTrackingSettings | TrackingActionError> {
+): Promise<TrackingUpsertResult | TrackingActionError> {
   const user = await getCurrentUser();
   if (!user) return { error: "로그인이 필요해요." };
 

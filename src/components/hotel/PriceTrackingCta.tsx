@@ -10,7 +10,7 @@ import { formatShortDate } from "@/lib/date";
 import { formatPrice } from "@/lib/format";
 import { formatGuestsLabel, stayQueryToSearchParams, type StayQuery } from "@/lib/search/stay-query";
 import { startTracking, stopTracking } from "@/lib/tracking/actions";
-import type { Currency } from "@/types/hotel";
+import type { Currency, RoomPrice } from "@/types/hotel";
 import type { PriceTrackingSettings } from "@/types/tracking";
 import { PriceTrackingSheet } from "./PriceTrackingSheet";
 
@@ -22,6 +22,8 @@ export interface PriceTrackingCtaProps {
   nights: number;
   currentPrice: number;
   currency: Currency;
+  /** True when nobody's ever checked a live price for this exact (hotel, stay) — search/detail pages never call SerpApi themselves, so this is the normal state on first view. Skips the target-price step in the sheet; the live check happens inside the same "가격 추적 시작" submit instead of a separate preview call. */
+  priceUnknown: boolean;
   /** Fetched server-side so the CTA renders in the right state on first paint — no login-wall flash. */
   initialSettings: PriceTrackingSettings | null;
   /** Also fetched server-side — decides whether "가격 추적 시작" opens the settings sheet or a login prompt. */
@@ -47,6 +49,7 @@ export function PriceTrackingCta({
   nights,
   currentPrice,
   currency,
+  priceUnknown,
   initialSettings,
   isLoggedIn,
   loginRedirectPath,
@@ -58,6 +61,7 @@ export function PriceTrackingCta({
   const [conditionsOpen, setConditionsOpen] = useState(false);
   const [loginPromptOpen, setLoginPromptOpen] = useState(false);
   const [settings, setSettings] = useState<PriceTrackingSettings | null>(initialSettings);
+  const [confirmedPrice, setConfirmedPrice] = useState<RoomPrice | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -90,7 +94,11 @@ export function PriceTrackingCta({
     router.push(`/hotels/${hotelId}?${params.toString()}`);
   }
 
-  function submit(values: Pick<PriceTrackingSettings, "targetPrice" | "notifyOnAnyDrop" | "notifyOnNewLow">) {
+  function submit(
+    values: Pick<PriceTrackingSettings, "notifyOnAnyDrop" | "notifyOnNewLow"> & {
+      targetPrice?: number;
+    },
+  ) {
     setError(null);
     startTransition(async () => {
       const result = await startTracking({
@@ -107,7 +115,8 @@ export function PriceTrackingCta({
         setError(result.error);
         return;
       }
-      setSettings(result);
+      setSettings(result.settings);
+      setConfirmedPrice(result.price);
       setSheetOpen(false);
     });
   }
@@ -124,6 +133,13 @@ export function PriceTrackingCta({
     });
   }
 
+  // Once a live check has actually confirmed a price (right after starting,
+  // or on a later "알림 설정" edit), that's more current than the
+  // server-rendered currentPrice prop — which is 0/stale for exactly the
+  // "nobody's checked yet" case priceUnknown describes.
+  const effectiveCurrentPrice = confirmedPrice?.totalPrice ?? currentPrice;
+  const effectivePriceUnknown = priceUnknown && !confirmedPrice;
+
   return (
     <>
       {settings ? (
@@ -137,6 +153,14 @@ export function PriceTrackingCta({
             <br />
             {formatGuestsLabel(settings.rooms, settings.adults, settings.children)}
           </p>
+          {confirmedPrice && (
+            <p className="text-small text-ink-muted">
+              확인된 현재 가격{" "}
+              <span className="font-semibold tabular-nums text-ink">
+                {formatPrice(confirmedPrice.totalPrice, confirmedPrice.currency)}
+              </span>
+            </p>
+          )}
           <p className="text-body text-ink">
             <span className="font-semibold tabular-nums">
               {formatPrice(settings.targetPrice, currency)}
@@ -167,8 +191,6 @@ export function PriceTrackingCta({
         </Button>
       )}
 
-      {error && <p className="text-small text-price-up">{error}</p>}
-
       <PriceTrackingSheet
         open={sheetOpen}
         onClose={() => setSheetOpen(false)}
@@ -177,11 +199,14 @@ export function PriceTrackingCta({
         checkIn={stay.checkIn}
         checkOut={stay.checkOut}
         nights={nights}
-        currentPrice={currentPrice}
+        currentPrice={effectiveCurrentPrice}
         currency={currency}
         initial={settings ?? undefined}
         onSubmit={submit}
         submitLabel={settings ? "설정 저장" : "가격 추적 시작"}
+        priceUnknown={effectivePriceUnknown}
+        error={error}
+        pending={isPending}
       />
 
       <StayPickerSheet

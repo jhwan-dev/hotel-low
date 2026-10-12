@@ -184,6 +184,7 @@ export default async function HotelDetailPage(props: PageProps<"/hotels/[id]">) 
           nights={nights}
           currentPrice={price?.totalPrice ?? 0}
           currency={price?.currency ?? "KRW"}
+          priceUnknown={price === null}
           initialSettings={initialTracking}
           isLoggedIn={user !== null}
           loginRedirectPath={

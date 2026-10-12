@@ -1,3 +1,4 @@
+import type { RoomPrice } from "@/types/hotel";
 import type { PriceTrackingSettings } from "@/types/tracking";
 
 /** Thrown by TrackedHotelsRepository.upsert for a reason the user should see verbatim (e.g. "이 숙소는 현재 아고다 가격을 확인할 수 없어요") — src/lib/tracking/actions.ts catches this specifically and turns it into a TrackingActionError, unlike any other thrown error. */
@@ -12,10 +13,23 @@ export type TrackingInput = Pick<
   | "children"
   | "rooms"
   | "currency"
-  | "targetPrice"
   | "notifyOnAnyDrop"
   | "notifyOnNewLow"
->;
+> & {
+  /**
+   * Omit when the client doesn't know the current price yet (a hotel
+   * nobody's ever checked a live price for — see PriceTrackingSheet's
+   * priceUnknown mode) — upsert() then picks a default off whatever price
+   * its own live check finds, instead of the client guessing blind.
+   */
+  targetPrice?: number;
+};
+
+/** upsert()'s result: the saved settings plus the live price that confirmed them — callers show this immediately instead of re-fetching. */
+export interface TrackingUpsertResult {
+  settings: PriceTrackingSettings;
+  price: RoomPrice;
+}
 
 /**
  * Swap point for tracked_hotels: MockTrackedHotelsRepository (in-memory,
@@ -36,7 +50,7 @@ export interface TrackedHotelsRepository {
   listActive(userId: string): Promise<PriceTrackingSettings[]>;
 
   /** Creates a new active tracking, or updates the existing active one for the same (hotel, stay). */
-  upsert(userId: string, input: TrackingInput): Promise<PriceTrackingSettings>;
+  upsert(userId: string, input: TrackingInput): Promise<TrackingUpsertResult>;
 
   /** Soft-delete: marks the tracking inactive rather than removing history. */
   deactivate(userId: string, hotelId: string, checkIn: string, checkOut: string): Promise<void>;
