@@ -5,6 +5,27 @@ import type { HotelCatalog, HotelCatalogEntry } from "./catalog";
 
 const PROVIDER = "agoda";
 
+/**
+ * Cities the SerpApi catalog-seeding script (scripts/seed-hotel-catalog.ts)
+ * actually populates, stored in `hotels.city` in English exactly as SerpApi
+ * returns them. Two jobs:
+ *  1. Scope every query here to just these — `hotels` still has leftover
+ *     rows from the old mock catalog (Korean city names, provider_hotel_id
+ *     like "1400001") that predate this provider and were never backfilled
+ *     into it; excluding them from search/listAll is cheaper and safer than
+ *     deleting rows real users may still reference.
+ *  2. Let a Korean city name in a search query (what users actually type —
+ *     "오사카", not "Osaka") still match, via CITY_KOREAN_ALIASES below.
+ * Add the new city here (and to CITY_KOREAN_ALIASES) when seeding one.
+ */
+const CATALOG_CITIES = ["Osaka", "Tokyo", "Danang"] as const;
+
+const CITY_KOREAN_ALIASES: Record<string, string> = {
+  Osaka: "오사카",
+  Tokyo: "도쿄",
+  Danang: "다낭",
+};
+
 const SELECT_COLUMNS =
   "id, provider_hotel_id, name, city, country, address, rating, review_count, images, amenities, description, agoda_hid, agoda_detail_path";
 
@@ -58,12 +79,28 @@ export class SupabaseHotelCatalog implements HotelCatalog {
     const q = destination.trim().replace(/[,()]/g, "");
     if (!q) return [];
 
+    // A Korean city name (what the UI actually lets people type) doesn't
+    // substring-match its English `city` column value, so translate it to
+    // an exact-city clause alongside the usual ilike matching.
+    const aliasCityMatches = CATALOG_CITIES.filter((city) => {
+      const alias = CITY_KOREAN_ALIASES[city];
+      return alias.includes(q) || q.includes(alias);
+    });
+
     const supabase = await createClient();
     const { data, error } = await supabase
       .from("hotels")
       .select(SELECT_COLUMNS)
       .eq("provider", PROVIDER)
-      .or(`city.ilike.%${q}%,country.ilike.%${q}%,name.ilike.%${q}%`);
+      .in("city", CATALOG_CITIES)
+      .or(
+        [
+          `city.ilike.%${q}%`,
+          `country.ilike.%${q}%`,
+          `name.ilike.%${q}%`,
+          ...aliasCityMatches.map((city) => `city.eq.${city}`),
+        ].join(","),
+      );
     if (error) throw error;
     return (data ?? []).map(toEntry);
   }
@@ -96,7 +133,8 @@ export class SupabaseHotelCatalog implements HotelCatalog {
     const { data, error } = await supabase
       .from("hotels")
       .select(SELECT_COLUMNS)
-      .eq("provider", PROVIDER);
+      .eq("provider", PROVIDER)
+      .in("city", CATALOG_CITIES);
     if (error) throw error;
     return (data ?? []).map(toEntry);
   }
