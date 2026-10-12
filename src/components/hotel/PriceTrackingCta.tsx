@@ -101,35 +101,51 @@ export function PriceTrackingCta({
   ) {
     setError(null);
     startTransition(async () => {
-      const result = await startTracking({
-        hotelId,
-        checkIn: stay.checkIn,
-        checkOut: stay.checkOut,
-        adults: stay.adults,
-        children: stay.children,
-        rooms: stay.rooms,
-        currency,
-        ...values,
-      });
-      if ("error" in result) {
-        setError(result.error);
-        return;
+      // startTracking() itself shouldn't throw (actions.ts catches
+      // everything it can), but invoking a Server Action at all can still
+      // fail before it ever runs (dropped connection, etc.) — that rejects
+      // this promise with nothing to catch it inside startTransition,
+      // which otherwise leaves the sheet looking like the click did
+      // nothing at all.
+      try {
+        const result = await startTracking({
+          hotelId,
+          checkIn: stay.checkIn,
+          checkOut: stay.checkOut,
+          adults: stay.adults,
+          children: stay.children,
+          rooms: stay.rooms,
+          currency,
+          ...values,
+        });
+        if ("error" in result) {
+          setError(result.error);
+          return;
+        }
+        setSettings(result.settings);
+        setConfirmedPrice(result.price);
+        setSheetOpen(false);
+      } catch (err) {
+        console.error("가격 추적 시작 실패", err);
+        setError("추적을 시작하지 못했어요. 잠시 후 다시 시도해주세요.");
       }
-      setSettings(result.settings);
-      setConfirmedPrice(result.price);
-      setSheetOpen(false);
     });
   }
 
   function stop() {
     setError(null);
     startTransition(async () => {
-      const result = await stopTracking(hotelId, stay.checkIn, stay.checkOut);
-      if ("error" in result) {
-        setError(result.error);
-        return;
+      try {
+        const result = await stopTracking(hotelId, stay.checkIn, stay.checkOut);
+        if ("error" in result) {
+          setError(result.error);
+          return;
+        }
+        setSettings(null);
+      } catch (err) {
+        console.error("추적 중지 실패", err);
+        setError("추적을 중지하지 못했어요. 잠시 후 다시 시도해주세요.");
       }
-      setSettings(null);
     });
   }
 

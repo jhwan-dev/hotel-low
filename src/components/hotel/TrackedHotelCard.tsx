@@ -63,22 +63,27 @@ export function TrackedHotelCard({
   ) {
     setError(null);
     startTransition(async () => {
-      const result = await startTracking({
-        hotelId: hotel.id,
-        checkIn: currentSettings.checkIn,
-        checkOut: currentSettings.checkOut,
-        adults: currentSettings.adults,
-        children: currentSettings.children,
-        rooms: currentSettings.rooms,
-        currency: currentSettings.currency,
-        ...values,
-      });
-      if ("error" in result) {
-        setError(result.error);
-        return;
+      try {
+        const result = await startTracking({
+          hotelId: hotel.id,
+          checkIn: currentSettings.checkIn,
+          checkOut: currentSettings.checkOut,
+          adults: currentSettings.adults,
+          children: currentSettings.children,
+          rooms: currentSettings.rooms,
+          currency: currentSettings.currency,
+          ...values,
+        });
+        if ("error" in result) {
+          setError(result.error);
+          return;
+        }
+        setCurrentSettings(result.settings);
+        setSheetOpen(false);
+      } catch (err) {
+        console.error("알림 설정 저장 실패", err);
+        setError("설정을 저장하지 못했어요. 잠시 후 다시 시도해주세요.");
       }
-      setCurrentSettings(result.settings);
-      setSheetOpen(false);
     });
   }
 
