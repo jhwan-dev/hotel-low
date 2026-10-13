@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 12+ (API 31) owns the splash screen via the system SplashScreen
+  API and ignores the legacy android:background/@drawable/splash approach
+  in the base styles.xml — it shows the launcher icon on a background color
+  it derives on its own (observed: a pale default, not our green) unless
+  windowSplashScreenBackground is set explicitly here. The icon itself
+  already defaults to @mipmap/ic_launcher_foreground (our white H), so only
+  the backdrop needs overriding to get the full green-bg/white-H splash.
+-->
+<resources>
+    <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
+        <item name="android:windowSplashScreenBackground">@color/ic_launcher_background</item>
+    </style>
+</resources>
