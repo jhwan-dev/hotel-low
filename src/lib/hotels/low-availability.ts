@@ -1,6 +1,10 @@
 import { hotelCatalog, hotelProvider } from "@/lib/hotels";
 import { addDaysISO, todayISO } from "@/lib/date";
+import { sample } from "@/lib/random";
 import type { Hotel, RoomPrice } from "@/types/hotel";
+
+/** See the matching constant/comment in src/lib/hotels/recent-drops.ts — same reason. */
+const SCAN_SIZE = 30;
 
 export interface LowAvailabilityDeal {
   hotel: Hotel;
@@ -12,7 +16,8 @@ const LOW_AVAILABILITY_THRESHOLD = 5;
 
 /**
  * Home-page curation: hotels with only a few rooms left at this rate, fewest
- * first. Same placeholder stay as getRecentPriceDrops() — in production this
+ * first. Same placeholder stay and same bounded random sample as
+ * getRecentPriceDrops() (see its comment for why) — in production this
  * would read `remainingRooms` off a live Search API call already made for
  * the home page, not a dedicated query.
  */
@@ -20,7 +25,7 @@ export async function getLowAvailabilityHotels(limit = 4): Promise<LowAvailabili
   const checkIn = addDaysISO(todayISO(), 14);
   const checkOut = addDaysISO(checkIn, 2);
 
-  const entries = await hotelCatalog.listAll();
+  const entries = sample(await hotelCatalog.listAll(), SCAN_SIZE);
   const candidates = await Promise.all(
     entries.map(async (entry): Promise<LowAvailabilityDeal | null> => {
       const result = await hotelProvider.getHotelById(entry.appHotelId, {

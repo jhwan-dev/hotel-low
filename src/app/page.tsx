@@ -23,13 +23,29 @@ export const metadata: Metadata = {
     "여행 날짜와 호텔을 선택하면 가격 변화를 계속 추적하고, 가격이 내려갔을 때 알려드립니다.",
 };
 
+/** Unwraps a Promise.allSettled result to its value, logging and falling back to `fallback` on rejection — one failed section (e.g. a Supabase hiccup) degrades that section instead of crashing the whole page. */
+function settledOr<T>(result: PromiseSettledResult<T>, label: string, fallback: T): T {
+  if (result.status === "fulfilled") return result.value;
+  console.error(`Home: ${label} failed`, result.reason);
+  return fallback;
+}
+
 export default async function Home() {
-  const [trackedList, drops, lowAvailability] = await Promise.all([
+  const [trackedListResult, dropsResult, lowAvailabilityResult] = await Promise.allSettled([
     getMyTrackedHotels(),
     getRecentPriceDrops(4),
     getLowAvailabilityHotels(4),
   ]);
-  const tracked = await resolveTrackingDashboard(trackedList);
+  const trackedList = settledOr(trackedListResult, "getMyTrackedHotels", []);
+  const drops = settledOr(dropsResult, "getRecentPriceDrops", []);
+  const lowAvailability = settledOr(lowAvailabilityResult, "getLowAvailabilityHotels", []);
+
+  let tracked: Awaited<ReturnType<typeof resolveTrackingDashboard>> = [];
+  try {
+    tracked = await resolveTrackingDashboard(trackedList);
+  } catch (err) {
+    console.error("Home: resolveTrackingDashboard failed", err);
+  }
 
   return (
     <Container className="flex flex-col gap-8 py-6">

@@ -28,7 +28,16 @@ export const metadata: Metadata = {
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   const user = await getCurrentUser();
   const isSignedIn = Boolean(user && !user.isMock);
-  const unreadCount = user ? await notificationService.countUnread(user.id) : 0;
+  // Every page goes through this layout — a Supabase hiccup here must never
+  // take the whole app down over a notification badge count.
+  let unreadCount = 0;
+  if (user) {
+    try {
+      unreadCount = await notificationService.countUnread(user.id);
+    } catch (err) {
+      console.error("RootLayout: countUnread failed", err);
+    }
+  }
 
   return (
     <html lang="ko" className={`${inter.variable} h-full antialiased`}>
