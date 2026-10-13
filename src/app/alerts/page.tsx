@@ -4,7 +4,6 @@ import { Container } from "@/components/layout";
 import { Button } from "@/components/ui";
 import { AppDownloadBanner } from "@/components/notifications/AppDownloadBanner";
 import { NotificationListItem } from "@/components/notifications/NotificationListItem";
-import { signOut } from "@/lib/auth/actions";
 import { getCurrentUser } from "@/lib/auth/getCurrentUser";
 import { notificationService } from "@/lib/notifications";
 import { markAllNotificationsRead } from "@/lib/notifications/actions";
@@ -37,22 +36,13 @@ export default async function AlertsPage() {
     <Container className="flex flex-col gap-5 py-6">
       <div className="flex items-center justify-between">
         <h1 className="text-h1 text-ink">알림</h1>
-        <div className="flex items-center gap-1">
-          {hasUnread && (
-            <form action={markAllNotificationsRead}>
-              <Button type="submit" variant="ghost" size="sm">
-                전체 읽음
-              </Button>
-            </form>
-          )}
-          {!user.isMock && (
-            <form action={signOut.bind(null, "/")}>
-              <Button type="submit" variant="ghost" size="sm">
-                로그아웃
-              </Button>
-            </form>
-          )}
-        </div>
+        {hasUnread && (
+          <form action={markAllNotificationsRead}>
+            <Button type="submit" variant="ghost" size="sm">
+              전체 읽음
+            </Button>
+          </form>
+        )}
       </div>
 
       <AppDownloadBanner />

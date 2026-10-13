@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import { EmailMagicLinkForm } from "@/components/auth/EmailMagicLinkForm";
 import { Container } from "@/components/layout";
-import { Button, LinkButton } from "@/components/ui";
+import { LinkButton } from "@/components/ui";
 import { TrackedHotelCard } from "@/components/hotel";
-import { signOut } from "@/lib/auth/actions";
 import { getCurrentUser } from "@/lib/auth/getCurrentUser";
 import { getMyTrackedHotels } from "@/lib/tracking/queries";
 import { resolveTrackingDashboard } from "@/lib/tracking/resolveTrackingDashboard";
@@ -36,16 +35,7 @@ export default async function TrackingPage() {
 
   return (
     <Container className="flex flex-col gap-5 py-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-h1 text-ink">가격 추적 중인 호텔</h1>
-        {!user.isMock && (
-          <form action={signOut.bind(null, "/")}>
-            <Button type="submit" variant="ghost" size="sm">
-              로그아웃
-            </Button>
-          </form>
-        )}
-      </div>
+      <h1 className="text-h1 text-ink">가격 추적 중인 호텔</h1>
 
       {items.length === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-card border border-dashed border-border p-10 text-center">

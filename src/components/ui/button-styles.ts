@@ -1,6 +1,6 @@
 import { cn } from "@/lib/cn";
 
-export type ButtonVariant = "primary" | "secondary" | "outline" | "ghost" | "success";
+export type ButtonVariant = "primary" | "secondary" | "outline" | "ghost" | "success" | "danger";
 export type ButtonSize = "xs" | "sm" | "md" | "lg";
 
 const variantClasses: Record<ButtonVariant, string> = {
@@ -13,6 +13,8 @@ const variantClasses: Record<ButtonVariant, string> = {
   ghost: "bg-transparent text-ink hover:bg-surface-muted disabled:opacity-50",
   /** Emphasized booking CTA when the price is down — same green as the price-drop tokens, so it reads as a continuation of that state. */
   success: "bg-price-down text-white hover:opacity-90 active:opacity-80 disabled:opacity-50",
+  /** Irreversible/destructive actions (account deletion) — same red as the price-up tokens. */
+  danger: "bg-price-up text-white hover:opacity-90 active:opacity-80 disabled:opacity-50",
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
