@@ -4,6 +4,7 @@ import Script from "next/script";
 import Link from "next/link";
 import { BellIcon } from "@/components/icons";
 import { BottomNav, Header } from "@/components/layout";
+import { PushBridge } from "@/components/push/PushBridge";
 import { Button } from "@/components/ui";
 import { signOut } from "@/lib/auth/actions";
 import { getCurrentUser } from "@/lib/auth/getCurrentUser";
@@ -32,6 +33,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="ko" className={`${inter.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col bg-background font-sans text-foreground">
+        <PushBridge />
         <Header
           rightSlot={
             <>
