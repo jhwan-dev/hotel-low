@@ -8,6 +8,7 @@ import { Badge, LinkButton } from "@/components/ui";
 import { PriceHistoryChart, PriceTrackingCta, StayConditionsBar } from "@/components/hotel";
 import { getCurrentUser } from "@/lib/auth/getCurrentUser";
 import { hotelCatalog, hotelProvider } from "@/lib/hotels";
+import { resizeGoogleImage } from "@/lib/hotels/imageUrl";
 import { computePriceStatus, priceStatusToneClasses, toTotalPoints } from "@/lib/hotels/price-history";
 import { getMyTrackingStatus } from "@/lib/tracking/queries";
 import { formatRelativeDays, nightsBetween } from "@/lib/date";
@@ -84,10 +85,9 @@ export default async function HotelDetailPage(props: PageProps<"/hotels/[id]">) 
             )}
           >
             <Image
-              src={src}
+              src={resizeGoogleImage(src, i === 0 ? 800 : 400)}
               alt={`${hotel.name} 사진 ${i + 1}`}
               fill
-              unoptimized
               sizes="(min-width: 640px) 25vw, 50vw"
               className="object-cover"
               priority={i === 0}

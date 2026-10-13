@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { Card, CardBody, CardMedia, CardRibbon, type CardRibbonTone } from "@/components/ui";
 import { formatPrice } from "@/lib/format";
+import { resizeGoogleImage } from "@/lib/hotels/imageUrl";
 import type { Hotel, RoomPrice } from "@/types/hotel";
 
 export interface HotelDealCardProps {
@@ -41,7 +42,7 @@ export function HotelDealCard({
       <Card className="overflow-hidden">
         <CardMedia className="aspect-square">
           <Image
-            src={hotel.images[0]}
+            src={resizeGoogleImage(hotel.images[0], 400)}
             alt={hotel.name}
             fill
             sizes="(min-width: 640px) 25vw, 50vw"
