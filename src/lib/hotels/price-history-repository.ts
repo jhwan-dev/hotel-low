@@ -1,9 +1,11 @@
 import "server-only";
 
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { addDaysISO, todayISO } from "@/lib/date";
 import type { HotelCatalog } from "@/lib/hotels/catalog";
 import { mockHotels } from "@/lib/hotels/mock-data";
 import { priceCheckedOn } from "@/lib/hotels/mock-pricing";
+import { SupabaseHotelCatalog } from "@/lib/hotels/supabaseCatalog";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { findHotelRowId } from "@/lib/supabase/hotelsTable";
@@ -67,6 +69,19 @@ export interface PriceHistoryRepository {
     checkOut: string,
     partySize: PartySize,
   ): Promise<LatestPrice | null>;
+
+  /**
+   * Batched getLatestPrice — one round-trip for every hotel in `hotelIds`
+   * instead of one per hotel. SerpApiHotelProvider.search() is the only
+   * caller (one city can be ~100 catalog entries); a hotel with no stored
+   * price for this exact stay just has no entry in the returned Map.
+   */
+  getLatestPricesForHotels(
+    hotelIds: string[],
+    checkIn: string,
+    checkOut: string,
+    partySize: PartySize,
+  ): Promise<Map<string, LatestPrice>>;
 }
 
 export class MockPriceHistoryRepository implements PriceHistoryRepository {
@@ -97,6 +112,11 @@ export class MockPriceHistoryRepository implements PriceHistoryRepository {
   async getLatestPrice(): Promise<LatestPrice | null> {
     return null;
   }
+
+  /** Same unreachable-in-practice note as getLatestPrice above. */
+  async getLatestPricesForHotels(): Promise<Map<string, LatestPrice>> {
+    return new Map();
+  }
 }
 
 /**
@@ -108,8 +128,30 @@ export class MockPriceHistoryRepository implements PriceHistoryRepository {
  */
 export class SupabasePriceHistoryRepository implements PriceHistoryRepository {
   private readonly fallback = new MockPriceHistoryRepository();
+  /** SupabaseHotelCatalog.toEntry() sets appHotelId: row.id — when this is the catalog in use, hotelId already *is* the hotels.id row id, so resolveHotelRowId can skip the catalog+findHotelRowId round trip entirely. See that method for the (rare) case where it can't. */
+  private readonly isSupabaseCatalog: boolean;
 
-  constructor(private readonly catalog: HotelCatalog) {}
+  constructor(private readonly catalog: HotelCatalog) {
+    this.isSupabaseCatalog = catalog instanceof SupabaseHotelCatalog;
+  }
+
+  /**
+   * Was 2 extra Supabase round-trips per call (catalog.findByAppHotelId +
+   * findHotelRowId) to re-derive a value callers already had — appHotelId
+   * only needs translating when the catalog *isn't* Supabase-backed (the
+   * Supabase-price-history-with-mock-catalog hybrid isSupabaseConfigured()
+   * && !isSerpApiConfigured() allows — see src/lib/hotels/index.ts). That
+   * hybrid is the only case this method still does the translation for.
+   */
+  private async resolveHotelRowId(
+    client: SupabaseClient,
+    hotelId: string,
+  ): Promise<string | null> {
+    if (this.isSupabaseCatalog) return hotelId;
+    const entry = await this.catalog.findByAppHotelId(hotelId);
+    if (!entry) return null;
+    return findHotelRowId(client, "agoda", entry.providerHotelId);
+  }
 
   async getHistory(
     hotelId: string,
@@ -118,11 +160,8 @@ export class SupabasePriceHistoryRepository implements PriceHistoryRepository {
     days: PriceHistoryRangeDays,
     partySize?: PartySize,
   ): Promise<PriceHistory | null> {
-    const entry = await this.catalog.findByAppHotelId(hotelId);
-    if (!entry) return this.fallback.getHistory(hotelId, checkIn, checkOut, days);
-
     const supabase = await createClient();
-    const hotelRowId = await findHotelRowId(supabase, "agoda", entry.providerHotelId);
+    const hotelRowId = await this.resolveHotelRowId(supabase, hotelId);
     if (!hotelRowId) return this.fallback.getHistory(hotelId, checkIn, checkOut, days);
 
     const since = addDaysISO(todayISO(), -(days - 1));
@@ -168,11 +207,8 @@ export class SupabasePriceHistoryRepository implements PriceHistoryRepository {
 
   /** Writes always go through the admin client — hotel_price_history has no INSERT policy for anon/authenticated (see supabase/migrations/0001_init.sql), only service_role. */
   async recordPrice(entry: RecordPriceInput): Promise<void> {
-    const catalogEntry = await this.catalog.findByAppHotelId(entry.hotelId);
-    if (!catalogEntry) return;
-
     const admin = createAdminClient();
-    const hotelRowId = await findHotelRowId(admin, "agoda", catalogEntry.providerHotelId);
+    const hotelRowId = await this.resolveHotelRowId(admin, entry.hotelId);
     if (!hotelRowId) return;
 
     const { error } = await admin.from("hotel_price_history").insert({
@@ -196,11 +232,8 @@ export class SupabasePriceHistoryRepository implements PriceHistoryRepository {
     checkOut: string,
     partySize: PartySize,
   ): Promise<LatestPrice | null> {
-    const entry = await this.catalog.findByAppHotelId(hotelId);
-    if (!entry) return null;
-
     const supabase = await createClient();
-    const hotelRowId = await findHotelRowId(supabase, "agoda", entry.providerHotelId);
+    const hotelRowId = await this.resolveHotelRowId(supabase, hotelId);
     if (!hotelRowId) return null;
 
     const { data, error } = await supabase
@@ -224,5 +257,46 @@ export class SupabasePriceHistoryRepository implements PriceHistoryRepository {
       checkedAt: String(data.checked_at),
       provider: data.provider as PriceProvider,
     };
+  }
+
+  async getLatestPricesForHotels(
+    hotelIds: string[],
+    checkIn: string,
+    checkOut: string,
+    partySize: PartySize,
+  ): Promise<Map<string, LatestPrice>> {
+    if (hotelIds.length === 0) return new Map();
+
+    // hotelIds are appHotelIds, used directly as hotel_price_history.hotel_id
+    // with no per-id translation — safe because the only caller
+    // (SerpApiHotelProvider.search()) only ever runs with a Supabase-backed
+    // catalog (see src/lib/hotels/index.ts's useSerpApi), where appHotelId
+    // already *is* the hotels.id row id (same fact resolveHotelRowId above
+    // relies on).
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("hotel_price_history")
+      .select("hotel_id, price, currency, checked_at, provider")
+      .in("hotel_id", hotelIds)
+      .eq("check_in", checkIn)
+      .eq("check_out", checkOut)
+      .eq("adults", partySize.adults)
+      .eq("children", partySize.children)
+      .eq("rooms", partySize.rooms)
+      // Ascending so the last write per hotel_id below ends up being the
+      // latest — no DISTINCT ON support in PostgREST's query builder.
+      .order("checked_at", { ascending: true });
+    if (error) throw error;
+
+    const latestByHotel = new Map<string, LatestPrice>();
+    for (const row of data ?? []) {
+      latestByHotel.set(row.hotel_id, {
+        nightlyPrice: Number(row.price),
+        currency: row.currency as Currency,
+        checkedAt: String(row.checked_at),
+        provider: row.provider as PriceProvider,
+      });
+    }
+    return latestByHotel;
   }
 }

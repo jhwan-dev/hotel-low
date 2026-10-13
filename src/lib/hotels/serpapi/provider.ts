@@ -1,6 +1,6 @@
 import { nightsBetween, todayISO } from "@/lib/date";
 import type { HotelCatalog, HotelCatalogEntry } from "@/lib/hotels/catalog";
-import type { PriceHistoryRepository } from "@/lib/hotels/price-history-repository";
+import type { LatestPrice, PriceHistoryRepository } from "@/lib/hotels/price-history-repository";
 import type {
   Hotel,
   HotelProvider,
@@ -55,18 +55,14 @@ export class SerpApiHotelProvider implements HotelProvider {
     private readonly historyRepository: PriceHistoryRepository,
   ) {}
 
-  private async resolveFromStorage(
+  /** Builds the search-result shape from an already-fetched LatestPrice (or null) — no query of its own, so both the single-hotel and batched callers below can share it. */
+  private buildResult(
     entry: HotelCatalogEntry,
     params: HotelSearchParams,
-  ): Promise<HotelSearchResult> {
+    partySize: PartySize,
+    latest: LatestPrice | null,
+  ): HotelSearchResult {
     const hotel = entryToHotel(entry);
-    const partySize = resolvePartySize(params);
-    const latest = await this.historyRepository.getLatestPrice(
-      entry.appHotelId,
-      params.checkIn,
-      params.checkOut,
-      partySize,
-    );
     if (!latest) return { hotel, price: null };
 
     const nights = nightsBetween(params.checkIn, params.checkOut);
@@ -90,9 +86,39 @@ export class SerpApiHotelProvider implements HotelProvider {
     return { hotel, price };
   }
 
+  private async resolveFromStorage(
+    entry: HotelCatalogEntry,
+    params: HotelSearchParams,
+  ): Promise<HotelSearchResult> {
+    const partySize = resolvePartySize(params);
+    const latest = await this.historyRepository.getLatestPrice(
+      entry.appHotelId,
+      params.checkIn,
+      params.checkOut,
+      partySize,
+    );
+    return this.buildResult(entry, params, partySize, latest);
+  }
+
+  /**
+   * One Supabase round-trip for every hotel in the destination combined —
+   * was previously one `resolveFromStorage` (and so one getLatestPrice)
+   * *per hotel*, up to ~100 for a single city. findByDestination and
+   * getLatestPricesForHotels are the only two queries this makes
+   * regardless of how many hotels that city has.
+   */
   async search(params: HotelSearchParams): Promise<HotelSearchResponse> {
     const entries = await this.catalog.findByDestination(params.destination);
-    const results = await Promise.all(entries.map((e) => this.resolveFromStorage(e, params)));
+    const partySize = resolvePartySize(params);
+    const latestByHotel = await this.historyRepository.getLatestPricesForHotels(
+      entries.map((e) => e.appHotelId),
+      params.checkIn,
+      params.checkOut,
+      partySize,
+    );
+    const results = entries.map((entry) =>
+      this.buildResult(entry, params, partySize, latestByHotel.get(entry.appHotelId) ?? null),
+    );
     return { params, results, totalCount: results.length };
   }
 

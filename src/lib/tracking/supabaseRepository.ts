@@ -4,6 +4,7 @@ import { todayISO } from "@/lib/date";
 import type { HotelCatalog } from "@/lib/hotels/catalog";
 import { hotelProvider, priceHistoryRepository } from "@/lib/hotels";
 import { getSerpApiDailyLimit, isSerpApiConfigured } from "@/lib/hotels/serpapi/env";
+import { SupabaseHotelCatalog } from "@/lib/hotels/supabaseCatalog";
 import { tryConsumeDailyCall } from "@/lib/serpapi/callBudget";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -63,9 +64,15 @@ function toSettings(row: TrackedHotelRow, hotelId: string): PriceTrackingSetting
  * client — see src/lib/supabase/hotelsTable.ts for why that's safe.
  */
 export class SupabaseTrackedHotelsRepository implements TrackedHotelsRepository {
-  constructor(private readonly catalog: HotelCatalog) {}
+  private readonly isSupabaseCatalog: boolean;
 
+  constructor(private readonly catalog: HotelCatalog) {
+    this.isSupabaseCatalog = catalog instanceof SupabaseHotelCatalog;
+  }
+
+  /** See the identical optimization + comment in src/lib/hotels/price-history-repository.ts's resolveHotelRowId — same reasoning, same two wasted round-trips this skips whenever the catalog is Supabase-backed. */
   private async resolveHotelRowId(hotelId: string): Promise<string | null> {
+    if (this.isSupabaseCatalog) return hotelId;
     const entry = await this.catalog.findByAppHotelId(hotelId);
     if (!entry) return null;
     const supabase = await createClient();

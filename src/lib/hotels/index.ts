@@ -17,7 +17,11 @@ import type { HotelProvider } from "@/types/hotel";
 // + MockHotelCatalog) exactly as before. SerpApi mode additionally requires
 // Supabase (the catalog and price history it reads both live there) —
 // isSerpApiConfigured() alone does not skip that requirement.
-const useSerpApi = isSerpApiConfigured() && isSupabaseConfigured();
+// Also read by getLowAvailabilityHotels (src/lib/hotels/low-availability.ts)
+// to skip itself entirely under SerpApi — remainingRooms is only ever
+// populated by the mock Agoda path (agoda/mapper.ts), never by SerpApi's,
+// so every hotel it would scan is guaranteed to fail its own filter.
+export const useSerpApi = isSerpApiConfigured() && isSupabaseConfigured();
 
 export const hotelCatalog: HotelCatalog = useSerpApi
   ? new SupabaseHotelCatalog()
