@@ -8,7 +8,7 @@ import { Button, Card, CardBody, CardRibbon, PriceChangeBadge } from "@/componen
 import { cn } from "@/lib/cn";
 import { formatRelativeDays, formatShortDate } from "@/lib/date";
 import { formatPrice } from "@/lib/format";
-import { resizeGoogleImage } from "@/lib/hotels/imageUrl";
+import { shrinkHotelImage } from "@/lib/hotels/imageUrl";
 import { priceStatusToneClasses, type PriceStatus } from "@/lib/hotels/price-history";
 import { stayQueryToSearchParams } from "@/lib/search/stay-query";
 import { startTracking, stopTracking } from "@/lib/tracking/actions";
@@ -99,9 +99,10 @@ export function TrackedHotelCard({
         className="relative w-28 shrink-0 overflow-hidden rounded-l-card sm:w-36"
       >
         <Image
-          src={resizeGoogleImage(hotel.images[0], 300)}
+          src={shrinkHotelImage(hotel.images[0], 300)}
           alt={hotel.name}
           fill
+          unoptimized
           sizes="144px"
           className="object-cover"
         />

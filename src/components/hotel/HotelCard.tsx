@@ -4,7 +4,7 @@ import { ClockIcon, StarIcon } from "@/components/icons";
 import { Card, CardBody, CardFooter, CardMedia, LinkButton } from "@/components/ui";
 import { formatRelativeDays } from "@/lib/date";
 import { formatPrice, formatRating } from "@/lib/format";
-import { resizeGoogleImage } from "@/lib/hotels/imageUrl";
+import { shrinkHotelImage } from "@/lib/hotels/imageUrl";
 import { stayQueryToSearchParams, type StayQuery } from "@/lib/search/stay-query";
 import type { HotelSearchResult } from "@/types/hotel";
 
@@ -23,9 +23,10 @@ export function HotelCard({ result, stay }: HotelCardProps) {
       <Link href={detailHref} className="contents">
         <CardMedia>
           <Image
-            src={resizeGoogleImage(hotel.images[0], 600)}
+            src={shrinkHotelImage(hotel.images[0], 600)}
             alt={hotel.name}
             fill
+            unoptimized
             sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
             className="object-cover"
           />
