@@ -30,6 +30,10 @@ export default function PrivacyPolicyPage() {
               서비스 이용 과정에서 자동 생성: 가격을 추적하는 호텔·여행 날짜·인원·객실 수 등 추적 조건,
               알림 설정 및 알림 발송 이력
             </li>
+            <li>
+              모바일 앱에서 알림 수신에 동의한 경우: 기기 푸시 알림 토큰, 플랫폼 정보(Android/iOS) — 추적
+              중인 호텔의 가격이 내려갔을 때 앱으로 알림을 보내기 위한 용도로만 사용합니다.
+            </li>
             <li>접속 시 자동 수집: 접속 로그, 쿠키(로그인 세션 유지 목적)</li>
           </ul>
           <p>비밀번호, 결제 수단, 주소, 전화번호 등은 수집하지 않습니다.</p>
@@ -38,7 +42,7 @@ export default function PrivacyPolicyPage() {
         <LegalSection title="2. 개인정보의 수집 및 이용 목적">
           <ul className="list-disc pl-5">
             <li>회원 식별 및 이메일 로그인을 통한 인증</li>
-            <li>호텔 가격 추적 서비스 제공 및 가격 변동 알림 발송</li>
+            <li>호텔 가격 추적 서비스 제공 및 가격 변동 알림 발송(이메일 및 모바일 앱 푸시 알림)</li>
             <li>서비스 문의 응대 및 공지사항 전달</li>
           </ul>
         </LegalSection>
@@ -47,6 +51,11 @@ export default function PrivacyPolicyPage() {
           <p>
             이용자의 개인정보는 회원 탈퇴 시 지체 없이 파기합니다. 다만 관계 법령에 따라 보존이 필요한
             경우 해당 법령에서 정한 기간 동안 보관합니다.
+          </p>
+          <p>
+            기기 푸시 알림 토큰은 위 회원 탈퇴 시점과 별도로도, 다음의 경우 그 즉시 파기됩니다: 앱 삭제나
+            기기의 알림 권한 해제로 Google/Apple의 푸시 알림 서비스가 토큰이 더 이상 유효하지 않다고
+            알려오는 경우, 같은 기기에 다른 계정으로 로그인해 토큰이 그 계정으로 재할당되는 경우.
           </p>
         </LegalSection>
 
@@ -58,6 +67,7 @@ export default function PrivacyPolicyPage() {
           <ul className="list-disc pl-5">
             <li>Supabase(데이터베이스·인증 인프라) — 회원 인증 및 서비스 데이터 저장</li>
             <li>Resend(이메일 발송 인프라) — 로그인 인증 코드 및 가격 알림 메일 발송</li>
+            <li>Google Firebase Cloud Messaging(모바일 앱 푸시 알림 발송 인프라) — 가격 알림을 기기로 전송</li>
           </ul>
           <p>법령에 근거하거나 이용자의 별도 동의가 있는 경우를 제외하고 제3자에게 제공하지 않습니다.</p>
         </LegalSection>
