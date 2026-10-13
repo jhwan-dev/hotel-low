@@ -1,8 +1,14 @@
 -- device_tokens — one row per FCM-registered device, feeding the native push
 -- swap point in src/lib/notifications/service.ts (PushNotificationService).
--- Same ownership pattern as tracked_hotels: fully owner-restricted CRUD via
--- RLS, no admin-client bypass needed since every write happens from a
--- signed-in user's own session (src/lib/notifications/deviceTokens/actions.ts).
+-- RLS below is owner-restricted like tracked_hotels, but
+-- src/lib/notifications/deviceTokens/supabaseRepository.ts deliberately
+-- never uses the session client that would enforce it — every write goes
+-- through the admin client instead, both to let a reused device's token
+-- change owners (which the update policy's `auth.uid() = user_id` check
+-- would otherwise block, since it evaluates against the *existing* row)
+-- and because the price-check cron's reads/deletes have no session at all.
+-- These policies exist for defense-in-depth and any future direct read
+-- (e.g. a "내 기기 관리" page), not because today's code path needs them.
 --
 -- fcm_token is globally unique rather than unique per user: a device that
 -- gets reused under a different account (shared/resold phone, or a user who
