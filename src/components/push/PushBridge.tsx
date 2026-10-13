@@ -9,14 +9,20 @@ import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { registerDeviceToken } from "@/lib/notifications/deviceTokens/actions";
 import type { DevicePlatform } from "@/lib/notifications/deviceTokens/repository";
+import { registerIfAlreadyGranted } from "@/lib/push/permission";
 
 /**
  * Mounted once in the root layout, no-ops entirely in a browser tab —
  * everything here only runs inside the native shell
- * (Capacitor.isNativePlatform()). Handles the whole push lifecycle: asking
- * for permission, registering with FCM, persisting the token against
- * whoever's signed in, and turning a tapped notification into a navigation
- * to the hotel it's about.
+ * (Capacitor.isNativePlatform()). Registers listeners for the whole push
+ * lifecycle, persists a token against whoever's signed in, and turns a
+ * tapped notification into a navigation to the hotel it's about.
+ *
+ * Does NOT ask for permission — that only happens once, right after a
+ * user's first successful "가격 추적 시작" (src/components/push/PushPermissionPrompt.tsx,
+ * triggered from PriceTrackingCta.tsx), with our own explainer shown first.
+ * This only re-registers silently if the OS already has a "granted" answer
+ * on file from a previous visit — see src/lib/push/permission.ts.
  */
 export function PushBridge() {
   const router = useRouter();
@@ -55,11 +61,7 @@ export function PushBridge() {
       },
     );
 
-    void PushNotifications.requestPermissions().then((result) => {
-      if (result.receive === "granted") {
-        void PushNotifications.register();
-      }
-    });
+    void registerIfAlreadyGranted();
 
     // A token grabbed before sign-in would otherwise never get persisted —
     // registerDeviceToken() itself no-ops without a signed-in user

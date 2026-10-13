@@ -4,11 +4,13 @@ import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { LoginPromptSheet } from "@/components/auth/LoginPromptSheet";
 import { AppDownloadBanner } from "@/components/notifications/AppDownloadBanner";
+import { PushPermissionPrompt } from "@/components/push/PushPermissionPrompt";
 import { StayPickerSheet } from "@/components/search";
 import { BellIcon } from "@/components/icons";
 import { Badge, Button } from "@/components/ui";
 import { formatShortDate } from "@/lib/date";
 import { formatPrice } from "@/lib/format";
+import { getPushPermissionState, requestPushPermissionAndRegister } from "@/lib/push/permission";
 import { formatGuestsLabel, stayQueryToSearchParams, type StayQuery } from "@/lib/search/stay-query";
 import { startTracking, stopTracking } from "@/lib/tracking/actions";
 import type { Currency, RoomPrice } from "@/types/hotel";
@@ -61,6 +63,7 @@ export function PriceTrackingCta({
   const [sheetOpen, setSheetOpen] = useState(autoOpen && isLoggedIn && !initialSettings);
   const [conditionsOpen, setConditionsOpen] = useState(false);
   const [loginPromptOpen, setLoginPromptOpen] = useState(false);
+  const [pushPromptOpen, setPushPromptOpen] = useState(false);
   const [settings, setSettings] = useState<PriceTrackingSettings | null>(initialSettings);
   const [confirmedPrice, setConfirmedPrice] = useState<RoomPrice | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -101,6 +104,10 @@ export function PriceTrackingCta({
     },
   ) {
     setError(null);
+    // Captured before the await below — a fresh "가격 추적 시작", not an
+    // "알림 설정" edit of a tracking that already exists. Only the former
+    // should ever trigger the push permission explainer.
+    const isNewTracking = !settings;
     startTransition(async () => {
       // startTracking() itself shouldn't throw (actions.ts catches
       // everything it can), but invoking a Server Action at all can still
@@ -126,6 +133,14 @@ export function PriceTrackingCta({
         setSettings(result.settings);
         setConfirmedPrice(result.price);
         setSheetOpen(false);
+        // Ask for push permission here instead of on app launch — this is
+        // the first moment the user's actually done something push would
+        // pay off for. getPushPermissionState() only resolves "prompt" when
+        // the OS hasn't been asked yet, so a user who already granted or
+        // denied never sees this again.
+        if (isNewTracking && (await getPushPermissionState()) === "prompt") {
+          setPushPromptOpen(true);
+        }
       } catch (err) {
         console.error("가격 추적 시작 실패", err);
         setError("추적을 시작하지 못했어요. 잠시 후 다시 시도해주세요.");
@@ -239,6 +254,15 @@ export function PriceTrackingCta({
         open={loginPromptOpen}
         onClose={() => setLoginPromptOpen(false)}
         next={loginRedirectPath}
+      />
+
+      <PushPermissionPrompt
+        open={pushPromptOpen}
+        onClose={() => setPushPromptOpen(false)}
+        onConfirm={() => {
+          setPushPromptOpen(false);
+          void requestPushPermissionAndRegister();
+        }}
       />
     </>
   );
