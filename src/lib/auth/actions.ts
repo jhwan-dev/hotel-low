@@ -7,6 +7,21 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "./getCurrentUser";
 import { safeNextPath } from "./safeNextPath";
 
+/**
+ * Lets EmailMagicLinkForm decide — without ever shipping the reviewer's
+ * email to the client — whether to show a password field instead of
+ * sending an OTP. REVIEWER_EMAIL is a server-only env var (never
+ * NEXT_PUBLIC_); this function only ever returns a boolean, so the actual
+ * address never reaches client code. See src/app/login/reviewer's removal
+ * commit for why this exists: Play/App Store reviewers can't receive the
+ * email OTP every other account uses.
+ */
+export async function checkIsReviewerEmail(email: string): Promise<boolean> {
+  const reviewerEmail = process.env.REVIEWER_EMAIL;
+  if (!reviewerEmail) return false;
+  return email.trim().toLowerCase() === reviewerEmail.trim().toLowerCase();
+}
+
 export async function signOut(next?: string): Promise<void> {
   if (isSupabaseConfigured()) {
     const supabase = await createClient();

@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Input, OtpInput } from "@/components/ui";
+import { checkIsReviewerEmail } from "@/lib/auth/actions";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/client";
 
@@ -12,7 +13,7 @@ export interface EmailMagicLinkFormProps {
   next?: string;
 }
 
-type Step = "trigger" | "email" | "code";
+type Step = "trigger" | "email" | "code" | "password";
 
 const CODE_LENGTH = 6;
 
@@ -30,6 +31,7 @@ export function EmailMagicLinkForm({ next = "/" }: EmailMagicLinkFormProps) {
   const [step, setStep] = useState<Step>("trigger");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
+  const [password, setPassword] = useState("");
   const [isPending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const configured = isSupabaseConfigured();
@@ -38,6 +40,17 @@ export function EmailMagicLinkForm({ next = "/" }: EmailMagicLinkFormProps) {
     event.preventDefault();
     setPending(true);
     setError(null);
+
+    // Store reviewers can't receive the OTP email, so the one account
+    // created for them (REVIEWER_EMAIL, checked server-side — see
+    // checkIsReviewerEmail) signs in with a password instead. Every other
+    // email takes the normal OTP path below.
+    if (await checkIsReviewerEmail(email)) {
+      setPending(false);
+      setStep("password");
+      return;
+    }
+
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithOtp({ email });
     setPending(false);
@@ -61,6 +74,52 @@ export function EmailMagicLinkForm({ next = "/" }: EmailMagicLinkFormProps) {
     }
     router.push(next);
     router.refresh();
+  }
+
+  async function handlePasswordSignIn(event: FormEvent) {
+    event.preventDefault();
+    setPending(true);
+    setError(null);
+    const supabase = createClient();
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    setPending(false);
+    if (error) {
+      setError("로그인하지 못했어요.");
+      return;
+    }
+    router.push(next);
+    router.refresh();
+  }
+
+  if (step === "password") {
+    return (
+      <form onSubmit={handlePasswordSignIn} className="flex w-full flex-col gap-3">
+        <Input
+          type="password"
+          required
+          autoFocus
+          placeholder="비밀번호"
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+          disabled={isPending}
+          errorText={error ?? undefined}
+        />
+        <Button type="submit" disabled={isPending} fullWidth>
+          {isPending ? "로그인 중..." : "로그인"}
+        </Button>
+        <button
+          type="button"
+          onClick={() => {
+            setStep("email");
+            setPassword("");
+            setError(null);
+          }}
+          className="text-small font-medium text-ink-muted"
+        >
+          뒤로
+        </button>
+      </form>
+    );
   }
 
   if (step === "code") {
