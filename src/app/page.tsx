@@ -5,6 +5,7 @@ import { HomeSearchBar } from "@/components/search";
 import { PriceDropCard, LowAvailabilityCard, HotelDealCard } from "@/components/hotel";
 import { PriceChangeBadge } from "@/components/ui";
 import { PopularDestinations } from "@/components/home/PopularDestinations";
+import { StayQueryProvider } from "@/components/search/StayQueryContext";
 import { getRecentPriceDrops } from "@/lib/hotels/recent-drops";
 import { getLowAvailabilityHotels } from "@/lib/hotels/low-availability";
 import { getMyTrackedHotels } from "@/lib/tracking/queries";
@@ -49,6 +50,7 @@ export default async function Home() {
 
   return (
     <Container className="flex flex-col gap-8 py-6">
+      <StayQueryProvider>
       <section className="flex flex-col gap-5">
         <div className="flex flex-col gap-2">
           <h1 className="text-h1 text-ink">
@@ -150,6 +152,7 @@ export default async function Home() {
         <h2 className="text-h3 text-ink">인기 여행지</h2>
         <PopularDestinations />
       </section>
+      </StayQueryProvider>
     </Container>
   );
 }

@@ -1,15 +1,19 @@
 "use client";
 
-import { useState } from "react";
 import { SearchIcon } from "@/components/icons";
 import { Button, Input } from "@/components/ui";
 import { supportedDestinations } from "@/lib/hotels/destinations";
-import { defaultStayQuery, type StayQuery } from "@/lib/search/stay-query";
+import { useStayQuery } from "./StayQueryContext";
 import { DateRangeGuestPicker } from "./DateRangeGuestPicker";
 
-/** Home screen's entry point: destination on its own line, dates + guest count below. */
+/**
+ * Home screen's entry point: destination on its own line, dates + guest
+ * count below. Shares its date/guest state via StayQueryContext (see that
+ * file) so PopularDestinations, rendered further down the same page, can
+ * carry the same picked dates into its own destination links.
+ */
 export function HomeSearchBar() {
-  const [stay, setStay] = useState<StayQuery>(defaultStayQuery);
+  const [stay, setStay] = useStayQuery();
 
   return (
     <form
