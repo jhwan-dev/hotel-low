@@ -1,11 +1,8 @@
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { EmailMagicLinkForm } from "@/components/auth/EmailMagicLinkForm";
-import { KakaoSignInButton } from "@/components/auth/KakaoSignInButton";
-import { OrDivider } from "@/components/auth/OrDivider";
 import { Container } from "@/components/layout";
 import { LegalConsentNotice } from "@/components/legal/LegalConsentNotice";
-import { isKakaoLoginEnabled } from "@/lib/auth/featureFlags";
 import { getCurrentUser } from "@/lib/auth/getCurrentUser";
 import { safeNextPath } from "@/lib/auth/safeNextPath";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
@@ -40,12 +37,6 @@ export default async function LoginPage(props: PageProps<"/login">) {
       <div className="flex w-full max-w-xs flex-col items-center gap-4">
         {isSupabaseConfigured() ? (
           <>
-            {isKakaoLoginEnabled() && (
-              <>
-                <KakaoSignInButton next={next} fullWidth />
-                <OrDivider />
-              </>
-            )}
             <EmailMagicLinkForm next={next} />
             <LegalConsentNotice />
           </>

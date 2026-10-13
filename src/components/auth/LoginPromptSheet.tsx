@@ -1,9 +1,6 @@
 import { BellIcon } from "@/components/icons";
 import { BottomSheet } from "@/components/ui";
-import { isKakaoLoginEnabled } from "@/lib/auth/featureFlags";
 import { EmailMagicLinkForm } from "./EmailMagicLinkForm";
-import { KakaoSignInButton } from "./KakaoSignInButton";
-import { OrDivider } from "./OrDivider";
 
 export interface LoginPromptSheetProps {
   open: boolean;
@@ -26,12 +23,6 @@ export function LoginPromptSheet({ open, onClose, next }: LoginPromptSheetProps)
             로그인하면 추적 목록이 저장되고, 가격이 내려가면 알려드려요.
           </p>
         </div>
-        {isKakaoLoginEnabled() && (
-          <>
-            <KakaoSignInButton next={next} fullWidth />
-            <OrDivider />
-          </>
-        )}
         <EmailMagicLinkForm next={next} />
       </div>
     </BottomSheet>

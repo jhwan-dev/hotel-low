@@ -1,6 +1,6 @@
 import { cn } from "@/lib/cn";
 
-export type ButtonVariant = "primary" | "secondary" | "outline" | "ghost" | "success" | "kakao";
+export type ButtonVariant = "primary" | "secondary" | "outline" | "ghost" | "success";
 export type ButtonSize = "xs" | "sm" | "md" | "lg";
 
 const variantClasses: Record<ButtonVariant, string> = {
@@ -13,8 +13,6 @@ const variantClasses: Record<ButtonVariant, string> = {
   ghost: "bg-transparent text-ink hover:bg-surface-muted disabled:opacity-50",
   /** Emphasized booking CTA when the price is down — same green as the price-drop tokens, so it reads as a continuation of that state. */
   success: "bg-price-down text-white hover:opacity-90 active:opacity-80 disabled:opacity-50",
-  /** Kakao's mandated brand yellow + near-black text — required by Kakao's own button guidelines, not part of our token palette. */
-  kakao: "bg-[#FEE500] text-[#191919] hover:opacity-90 active:opacity-80 disabled:cursor-not-allowed disabled:opacity-50",
 };
 
 const sizeClasses: Record<ButtonSize, string> = {

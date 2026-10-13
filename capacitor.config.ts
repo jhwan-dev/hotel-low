@@ -18,12 +18,6 @@ const config: CapacitorConfig = {
   webDir: "www",
   server: {
     url: "https://hotel-low.com",
-    // Without this, tapping "카카오로 계속하기" would hand the Kakao OAuth
-    // page off to the system browser (Capacitor's default for any
-    // cross-origin navigation) instead of staying in this WebView, where
-    // KakaoSignInButton.tsx expects the whole flow — including the final
-    // redirect back to this same origin's /auth/callback — to happen.
-    allowNavigation: ["*.kakao.com"],
   },
   plugins: {
     // Without this, a push that arrives while the app is open and visible

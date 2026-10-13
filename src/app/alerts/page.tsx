@@ -1,13 +1,10 @@
 import type { Metadata } from "next";
 import { EmailMagicLinkForm } from "@/components/auth/EmailMagicLinkForm";
-import { KakaoSignInButton } from "@/components/auth/KakaoSignInButton";
-import { OrDivider } from "@/components/auth/OrDivider";
 import { Container } from "@/components/layout";
 import { Button } from "@/components/ui";
 import { AppDownloadBanner } from "@/components/notifications/AppDownloadBanner";
 import { NotificationListItem } from "@/components/notifications/NotificationListItem";
 import { signOut } from "@/lib/auth/actions";
-import { isKakaoLoginEnabled } from "@/lib/auth/featureFlags";
 import { getCurrentUser } from "@/lib/auth/getCurrentUser";
 import { notificationService } from "@/lib/notifications";
 import { markAllNotificationsRead } from "@/lib/notifications/actions";
@@ -27,12 +24,6 @@ export default async function AlertsPage() {
         <h1 className="text-h1 text-ink">알림</h1>
         <p className="text-body text-ink-muted">로그인하면 가격 알림을 볼 수 있어요.</p>
         <div className="flex w-full max-w-xs flex-col items-center gap-4 pt-2">
-          {isKakaoLoginEnabled() && (
-            <>
-              <KakaoSignInButton next="/alerts" fullWidth />
-              <OrDivider />
-            </>
-          )}
           <EmailMagicLinkForm next="/alerts" />
         </div>
       </Container>

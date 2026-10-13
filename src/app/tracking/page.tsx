@@ -1,13 +1,9 @@
-import Link from "next/link";
 import type { Metadata } from "next";
 import { EmailMagicLinkForm } from "@/components/auth/EmailMagicLinkForm";
-import { KakaoSignInButton } from "@/components/auth/KakaoSignInButton";
-import { OrDivider } from "@/components/auth/OrDivider";
 import { Container } from "@/components/layout";
 import { Button, LinkButton } from "@/components/ui";
 import { TrackedHotelCard } from "@/components/hotel";
 import { signOut } from "@/lib/auth/actions";
-import { isKakaoLoginEnabled } from "@/lib/auth/featureFlags";
 import { getCurrentUser } from "@/lib/auth/getCurrentUser";
 import { getMyTrackedHotels } from "@/lib/tracking/queries";
 import { resolveTrackingDashboard } from "@/lib/tracking/resolveTrackingDashboard";
@@ -29,12 +25,6 @@ export default async function TrackingPage() {
           로그인하면 추적 중인 호텔 목록을 볼 수 있어요.
         </p>
         <div className="flex w-full max-w-xs flex-col items-center gap-4 pt-2">
-          {isKakaoLoginEnabled() && (
-            <>
-              <KakaoSignInButton next="/tracking" fullWidth />
-              <OrDivider />
-            </>
-          )}
           <EmailMagicLinkForm next="/tracking" />
         </div>
       </Container>

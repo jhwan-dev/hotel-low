@@ -26,7 +26,6 @@ export default function PrivacyPolicyPage() {
           <p>서비스는 다음과 같은 개인정보를 수집합니다.</p>
           <ul className="list-disc pl-5">
             <li>이메일 로그인 시: 이메일 주소</li>
-            <li>카카오 로그인 이용 시(제공 예정): 카카오 계정 식별자, 이메일 주소</li>
             <li>
               서비스 이용 과정에서 자동 생성: 가격을 추적하는 호텔·여행 날짜·인원·객실 수 등 추적 조건,
               알림 설정 및 알림 발송 이력
@@ -38,7 +37,7 @@ export default function PrivacyPolicyPage() {
 
         <LegalSection title="2. 개인정보의 수집 및 이용 목적">
           <ul className="list-disc pl-5">
-            <li>회원 식별 및 이메일·카카오 로그인을 통한 인증</li>
+            <li>회원 식별 및 이메일 로그인을 통한 인증</li>
             <li>호텔 가격 추적 서비스 제공 및 가격 변동 알림 발송</li>
             <li>서비스 문의 응대 및 공지사항 전달</li>
           </ul>
@@ -59,7 +58,6 @@ export default function PrivacyPolicyPage() {
           <ul className="list-disc pl-5">
             <li>Supabase(데이터베이스·인증 인프라) — 회원 인증 및 서비스 데이터 저장</li>
             <li>Resend(이메일 발송 인프라) — 로그인 인증 코드 및 가격 알림 메일 발송</li>
-            <li>Kakao(카카오 로그인, 제공 예정) — 소셜 로그인 인증</li>
           </ul>
           <p>법령에 근거하거나 이용자의 별도 동의가 있는 경우를 제외하고 제3자에게 제공하지 않습니다.</p>
         </LegalSection>
