@@ -11,6 +11,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { createClient } from "@supabase/supabase-js";
+import { extractDetailPath } from "@/lib/hotels/agodaLink/detailPath";
 
 const INPUT_FILE = path.join(process.cwd(), "scripts", ".output", "agoda-detail-urls.csv");
 
@@ -68,23 +69,6 @@ function parseCsv(text: string): string[][] {
     rows.push(row);
   }
   return rows.filter((r) => r.length > 1 || r[0] !== "");
-}
-
-/** Strips domain + "/ko-kr/"-style locale prefix, returns just the detail-page path. */
-function extractDetailPath(raw: string): string | null {
-  const trimmed = raw.trim();
-  if (!trimmed) return null;
-
-  let pathname: string;
-  try {
-    pathname = new URL(trimmed).pathname;
-  } catch {
-    // Not an absolute URL — the user pasted a bare path.
-    pathname = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
-  }
-
-  const stripped = pathname.replace(/^\/+/, "");
-  return stripped.replace(/^[a-z]{2}-[a-z]{2}\//i, "");
 }
 
 async function main() {

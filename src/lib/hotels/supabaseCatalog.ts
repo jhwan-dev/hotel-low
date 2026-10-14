@@ -143,4 +143,16 @@ export class SupabaseHotelCatalog implements HotelCatalog {
     if (error) throw error;
     return (data ?? []).map(toEntry);
   }
+
+  /** No `provider`/city filter — this needs to catch a collision with any of the 400+ seeded hotels regardless of city, not just the ones `findByDestination`/`listAll` surface for browsing. */
+  async findByAgodaDetailPath(path: string): Promise<HotelCatalogEntry | null> {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("hotels")
+      .select(SELECT_COLUMNS)
+      .eq("agoda_detail_path", path)
+      .maybeSingle();
+    if (error) throw error;
+    return data ? toEntry(data) : null;
+  }
 }

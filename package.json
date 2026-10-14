@@ -12,7 +12,9 @@
     "seed:catalog": "tsx --env-file=.env.local scripts/seed-hotel-catalog.ts",
     "fill:agoda-hid": "tsx --env-file=.env.local scripts/fill-agoda-hid.ts",
     "export:agoda-urls": "tsx --env-file=.env.local scripts/export-agoda-url-template.ts",
-    "import:agoda-urls": "tsx --env-file=.env.local scripts/import-agoda-detail-urls.ts"
+    "import:agoda-urls": "tsx --env-file=.env.local scripts/import-agoda-detail-urls.ts",
+    "calibrate:agoda": "tsx --env-file=.env.local scripts/calibrate-agoda-match.ts",
+    "debug:agoda-match": "tsx --env-file=.env.local scripts/debug-agoda-match.ts"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.3",

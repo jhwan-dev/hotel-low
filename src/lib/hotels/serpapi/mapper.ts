@@ -40,6 +40,11 @@ export function extractAddress(detail: SerpApiPropertyDetails): string | null {
   return detail.address && detail.address.length > 0 ? detail.address : null;
 }
 
+/** The hl=ko name from a live detail fetch — used to resolve a provisional (hl=en, Agoda-link-import) catalog name back to Korean, see resolveProvisionalName. */
+export function extractName(detail: SerpApiPropertyDetails): string | null {
+  return detail.name && detail.name.length > 0 ? detail.name : null;
+}
+
 /**
  * Agoda's own numeric hotel id, decoded out of the Agoda price entry's
  * `link` (a Google-ads redirect whose `pcurl` query param is Agoda's own

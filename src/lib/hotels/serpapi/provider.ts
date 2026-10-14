@@ -12,7 +12,7 @@ import type {
   RoomPrice,
 } from "@/types/hotel";
 import { getPropertyDetails } from "./client";
-import { buildBookingUrl, extractAddress, extractAgodaHid, mapDetailToRoomPrice } from "./mapper";
+import { buildBookingUrl, extractAddress, extractAgodaHid, extractName, mapDetailToRoomPrice } from "./mapper";
 
 const DEFAULT_ROOMS = 1;
 const DEFAULT_ADULTS = 2;
@@ -156,6 +156,7 @@ export class SerpApiHotelProvider implements HotelProvider {
       deepLinkKind: booking?.kind,
       detailAddress: extractAddress(detail),
       detailAgodaHid: extractAgodaHid(detail),
+      detailName: extractName(detail),
     };
   }
 

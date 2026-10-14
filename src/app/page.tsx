@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Container } from "@/components/layout";
-import { HomeSearchBar } from "@/components/search";
+import { AgodaLinkImportForm, HomeSearchBar } from "@/components/search";
 import { PriceDropCard, LowAvailabilityCard, HotelDealCard } from "@/components/hotel";
 import { PriceChangeBadge } from "@/components/ui";
 import { PopularDestinations } from "@/components/home/PopularDestinations";
@@ -66,6 +66,7 @@ export default async function Home() {
         </div>
 
         <HomeSearchBar />
+        <AgodaLinkImportForm />
       </section>
 
       <section className="flex flex-col gap-3">

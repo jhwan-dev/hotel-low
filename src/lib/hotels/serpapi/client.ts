@@ -22,7 +22,7 @@ function baseParams(params: SerpApiSearchParams): Record<string, string> {
     engine: "google_hotels",
     q: params.q,
     gl: "kr",
-    hl: "ko",
+    hl: params.hl ?? "ko",
     currency: "KRW",
     check_in_date: params.checkIn,
     check_out_date: params.checkOut,

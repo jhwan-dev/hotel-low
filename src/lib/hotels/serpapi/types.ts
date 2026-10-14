@@ -55,4 +55,6 @@ export interface SerpApiSearchParams {
   children?: number;
   /** Required by the property-detail call even when going straight to a known property_token — see client.ts. */
   propertyToken?: string;
+  /** Defaults to "ko" (client.ts) — overridden to "en" by the Agoda-link matching path (src/lib/hotels/agodaLink/match.ts) so candidate names compare against a romanized URL slug in the same language. Every other caller leaves this unset. */
+  hl?: string;
 }

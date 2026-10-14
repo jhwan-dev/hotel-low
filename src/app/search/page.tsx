@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { Container } from "@/components/layout";
-import { HotelSearchForm } from "@/components/search";
+import { AgodaLinkImportForm, HotelSearchForm } from "@/components/search";
 import { HotelResultsGrid } from "@/components/hotel";
 import { Badge } from "@/components/ui";
 import { hotelProvider, supportedDestinations } from "@/lib/hotels";
@@ -30,6 +30,7 @@ export default async function SearchPage(props: PageProps<"/search">) {
       </div>
 
       <HotelSearchForm defaultDestination={destination} defaultStay={stay} />
+      <AgodaLinkImportForm />
 
       {!hasQuery && (
         <div className="flex flex-wrap items-center gap-2">
@@ -57,7 +58,7 @@ export default async function SearchPage(props: PageProps<"/search">) {
             <HotelResultsGrid results={response.results} stay={stay} />
           ) : (
             <div className="rounded-card border border-dashed border-border p-8 text-center text-body text-ink-muted">
-              &quot;{destination}&quot;에 대한 검색 결과가 없어요. 다른 도시로 검색해보세요.
+              &quot;{destination}&quot;에 대한 검색 결과가 없어요. 다른 도시로 검색해보거나, 위 아고다 링크로 추가해보세요.
             </div>
           )}
         </>

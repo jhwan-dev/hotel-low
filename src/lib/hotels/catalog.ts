@@ -46,6 +46,8 @@ export interface HotelCatalog {
   findByProviderHotelId(providerHotelId: string): Promise<HotelCatalogEntry | null>;
   /** Every cataloged hotel — home-page curation (e.g. "recent price drops") scans this rather than one destination. */
   listAll(): Promise<HotelCatalogEntry[]>;
+  /** The fast path for src/lib/hotels/agodaLink/match.ts — a hotel whose `agoda_detail_path` already matches a pasted link's path needs no SerpApi call at all. Null in mock mode (mock entries never have an agodaDetailPath). */
+  findByAgodaDetailPath(path: string): Promise<HotelCatalogEntry | null>;
 }
 
 function toEntry(mock: (typeof mockHotels)[number]): HotelCatalogEntry {
@@ -93,5 +95,9 @@ export class MockHotelCatalog implements HotelCatalog {
 
   async listAll(): Promise<HotelCatalogEntry[]> {
     return mockHotels.map(toEntry);
+  }
+
+  async findByAgodaDetailPath(): Promise<HotelCatalogEntry | null> {
+    return null;
   }
 }

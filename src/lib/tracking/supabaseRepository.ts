@@ -13,6 +13,7 @@ import {
   ensureHotelRow,
   findHotelRowId,
   getHotelProviderRef,
+  resolveProvisionalName,
   updateAgodaPriceStatus,
 } from "@/lib/supabase/hotelsTable";
 import type { Currency } from "@/types/hotel";
@@ -181,6 +182,9 @@ export class SupabaseTrackedHotelsRepository implements TrackedHotelsRepository 
       address: livePrice.detailAddress ?? null,
       agodaHid: livePrice.detailAgodaHid ?? null,
     });
+    // No-op unless this row was inserted by the Agoda-link-import flow
+    // with a provisional (hl=en) name — see resolveProvisionalName.
+    await resolveProvisionalName(admin, hotelRowId, livePrice.detailName ?? null);
 
     await priceHistoryRepository.recordPrice({
       hotelId: input.hotelId,
