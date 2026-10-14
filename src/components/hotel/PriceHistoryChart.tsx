@@ -3,6 +3,7 @@
 import { useId, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { cn } from "@/lib/cn";
+import { daysBetween } from "@/lib/date";
 import { formatPrice } from "@/lib/format";
 import { priceStats } from "@/lib/hotels/price-history";
 import type { Currency, PriceHistoryRangeDays, PricePoint } from "@/types/hotel";
@@ -42,11 +43,17 @@ export function PriceHistoryChart({ points, currency, className }: PriceHistoryC
   const visible = points.slice(-range);
   const stats = priceStats(visible);
   const span = stats.max - stats.min || 1;
+  // Points are spaced by actual elapsed days, not by index — a tracking
+  // older than 30 days only gets re-checked every other day (see
+  // checkPriceAlerts.ts's RECHECK_INTERVAL_DAYS), so evenly spacing by
+  // index would stretch those gaps into looking like daily data.
+  const firstDay = visible[0]?.checkedAt;
+  const totalSpanDays = firstDay ? daysBetween(firstDay, visible[visible.length - 1].checkedAt) || 1 : 1;
 
-  const coords = visible.map((point, i) => {
+  const coords = visible.map((point) => {
     const x =
-      visible.length > 1
-        ? PADDING_X + (i / (visible.length - 1)) * (CHART_WIDTH - PADDING_X * 2)
+      visible.length > 1 && firstDay
+        ? PADDING_X + (daysBetween(firstDay, point.checkedAt) / totalSpanDays) * (CHART_WIDTH - PADDING_X * 2)
         : CHART_WIDTH / 2;
     const y =
       CHART_HEIGHT -

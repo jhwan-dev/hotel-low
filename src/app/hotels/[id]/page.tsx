@@ -44,26 +44,46 @@ export default async function HotelDetailPage(props: PageProps<"/hotels/[id]">) 
   const confirmedStay = hasExplicitStay(sp);
   const autoOpenTrackingSheet = firstParam(sp.startTracking) === "1";
 
-  const [result, history, initialTracking, user] = await Promise.all([
+  const [result, initialTracking, user] = await Promise.all([
     hotelProvider.getHotelById(id, { destination: "", ...stay }),
-    hotelProvider.getPriceHistory(id, stay.checkIn, stay.checkOut, 90),
     getMyTrackingStatus(id, stay.checkIn, stay.checkOut),
     getCurrentUser(),
   ]);
 
-  if (!result || !history) notFound();
+  if (!result) notFound();
 
   const { hotel, price } = result;
   // Only ever absent for a catalog hotel nothing has checked a live price for
   // yet (see HotelProvider.search/getHotelById — neither calls SerpApi) —
   // still need a nights count for the history chart below.
   const nights = price?.nights ?? nightsBetween(stay.checkIn, stay.checkOut);
-  const totalPoints = toTotalPoints(history.points, nights, stay.rooms);
+
+  // The price graph only ever reflects *this viewer's own* tracking of this
+  // exact (hotel, stay, party size) — SerpApi's call budget means only
+  // actively tracked conditions ever get a real price recorded at all, so
+  // showing anything before this user started tracking (or for someone
+  // else's tracking of the same stay) would mean showing data that isn't
+  // really "this tracking's history". Not tracking at all -> no query, no
+  // graph, just the explainer below.
+  const history = initialTracking
+    ? await hotelProvider.getPriceHistory(
+        id,
+        stay.checkIn,
+        stay.checkOut,
+        90,
+        { adults: stay.adults, children: stay.children, rooms: stay.rooms },
+        initialTracking.trackingStartedAt,
+      )
+    : null;
+  const totalPoints = history ? toTotalPoints(history.points, nights, stay.rooms) : [];
+  // Fewer than 2 points isn't enough to show a trend line or a meaningful
+  // "최근 30일 중 최저가" claim — see the "오늘 가격만 있음" state below.
   const last30Total = totalPoints.slice(-30);
   const previousTotal = last30Total.length >= 2 ? last30Total[last30Total.length - 2].price : null;
-  const status = price
-    ? computePriceStatus(price.totalPrice, previousTotal, last30Total, price.currency)
-    : null;
+  const status =
+    price && totalPoints.length >= 2
+      ? computePriceStatus(price.totalPrice, previousTotal, last30Total, price.currency)
+      : null;
 
   return (
     <Container className="flex flex-col gap-5 py-4">
@@ -137,7 +157,7 @@ export default async function HotelDetailPage(props: PageProps<"/hotels/[id]">) 
             </span>
           )}
         </div>
-        {price && status ? (
+        {price ? (
           <>
             <div className="flex flex-col gap-0.5">
               <div className="flex items-baseline gap-1.5">
@@ -154,27 +174,49 @@ export default async function HotelDetailPage(props: PageProps<"/hotels/[id]">) 
               </p>
             </div>
 
-            <div
-              className={cn(
-                "flex items-center gap-1.5 rounded-control px-3 py-2 text-small font-semibold",
-                priceStatusToneClasses[status.trend],
-              )}
-            >
-              {status.trend === "down" && <ArrowDownIcon width={16} height={16} />}
-              {status.trend === "up" && <ArrowUpIcon width={16} height={16} />}
-              {status.message}
-            </div>
+            {status && (
+              <div
+                className={cn(
+                  "flex items-center gap-1.5 rounded-control px-3 py-2 text-small font-semibold",
+                  priceStatusToneClasses[status.trend],
+                )}
+              >
+                {status.trend === "down" && <ArrowDownIcon width={16} height={16} />}
+                {status.trend === "up" && <ArrowUpIcon width={16} height={16} />}
+                {status.message}
+              </div>
+            )}
           </>
         ) : (
           <p className="text-body text-ink-muted">가격 확인 전 · 추적을 시작하면 바로 확인해드려요</p>
         )}
       </div>
 
-      {/* Price history — swap `history.points` for a real Agoda/Booking feed later; PriceHistoryChart itself only needs PricePoint[]. Always the same total-stay basis as the price block above, so "현재가" here matches the headline number exactly. */}
+      {/* Price history — only ever this viewer's own tracking of this exact
+          stay, from the moment they started it (see the `history` fetch
+          above). Always the same total-stay basis as the price block
+          above, so "오늘 가격"/"현재가" here matches the headline number. */}
       <div className="flex flex-col gap-1 rounded-card border border-border bg-surface p-5">
         <h2 className="text-h3 text-ink">총 숙박 가격 변화</h2>
-        <p className="text-caption text-ink-muted">{nights}박 총 가격 기준</p>
-        <PriceHistoryChart points={totalPoints} currency={price?.currency ?? "KRW"} className="pt-3" />
+        {!initialTracking ? (
+          <p className="pt-3 text-body text-ink-muted">
+            추적을 시작하면 오늘부터 가격 변화를 기록해 그래프로 보여드려요.
+          </p>
+        ) : totalPoints.length < 2 ? (
+          <p className="pt-3 text-body text-ink">
+            오늘 가격{" "}
+            <span className="font-semibold tabular-nums">
+              {formatPrice(totalPoints[0]?.price ?? price?.totalPrice ?? 0, price?.currency ?? "KRW")}
+            </span>
+            <br />
+            <span className="text-small text-ink-muted">내일부터 변화를 보여드릴게요.</span>
+          </p>
+        ) : (
+          <>
+            <p className="text-caption text-ink-muted">{nights}박 총 가격 기준</p>
+            <PriceHistoryChart points={totalPoints} currency={price?.currency ?? "KRW"} className="pt-3" />
+          </>
+        )}
       </div>
 
       <div className="flex flex-col gap-3">

@@ -51,6 +51,7 @@ export interface RoomPrice {
    */
   detailAddress?: string | null;
   detailAgodaHid?: string | null;
+  detailName?: string | null;
 }
 
 export interface PricePoint {
@@ -125,5 +126,7 @@ export interface HotelProvider {
     days: PriceHistoryRangeDays,
     /** When given, only history recorded for this exact party size is returned. Omit to keep the old, unscoped behavior (used by home-page curation, which has no particular party size). */
     partySize?: PartySize,
+    /** ISO timestamp — only points recorded at/after this are returned. Hotel detail page passes the viewer's own PriceTrackingSettings.trackingStartedAt, so the graph never shows history from before this user started tracking. */
+    since?: string,
   ): Promise<PriceHistory | null>;
 }

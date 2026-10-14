@@ -15,4 +15,13 @@ export interface PriceTrackingSettings {
   notifyOnAnyDrop: boolean;
   /** Alert whenever the price sets a new recorded low. */
   notifyOnNewLow: boolean;
+  /**
+   * When this active tracking stint began (ISO timestamp) — preserved
+   * across settings edits (notify toggles, target price), reset only when
+   * the user actually stops and restarts tracking for this (hotel, stay).
+   * The price graph (src/app/hotels/[id]/page.tsx) only ever shows
+   * hotel_price_history rows from this point on — see
+   * PriceHistoryRepository.getHistory's `since` param.
+   */
+  trackingStartedAt: string;
 }

@@ -52,6 +52,8 @@ export interface PriceHistoryRepository {
     checkOut: string,
     days: PriceHistoryRangeDays,
     partySize?: PartySize,
+    /** ISO timestamp — only points recorded at/after this are returned (see HotelProvider.getPriceHistory). */
+    since?: string,
   ): Promise<PriceHistory | null>;
 
   /** Appends today's price check. Called once per (hotel, dates, party size) by the price-check job — see src/lib/notifications/checkPriceAlerts.ts. */
@@ -121,13 +123,15 @@ export class MockPriceHistoryRepository implements PriceHistoryRepository {
 
 /**
  * Reads Supabase's hotel_price_history — public SELECT policy, so the
- * session/anon client is enough. Nothing writes to this table yet (that's a
- * scheduled price-check job we haven't built), so for any stay Supabase has
- * no rows for yet, this falls back to the same deterministic mock generator
- * MockPriceHistoryRepository uses — real rows win the moment they exist.
+ * session/anon client is enough. Writes come from the price-check cron
+ * and from tracking-start's own one-time live check (see
+ * src/lib/tracking/supabaseRepository.ts's upsert()). There is no mock/
+ * fabricated fallback here — a stay nobody's ever actually tracked
+ * genuinely has no history, and the UI (hotels/[id]/page.tsx) is expected
+ * to show "추적을 시작하면..." instead of calling this at all in that case,
+ * not a fake graph.
  */
 export class SupabasePriceHistoryRepository implements PriceHistoryRepository {
-  private readonly fallback = new MockPriceHistoryRepository();
   /** SupabaseHotelCatalog.toEntry() sets appHotelId: row.id — when this is the catalog in use, hotelId already *is* the hotels.id row id, so resolveHotelRowId can skip the catalog+findHotelRowId round trip entirely. See that method for the (rare) case where it can't. */
   private readonly isSupabaseCatalog: boolean;
 
@@ -159,19 +163,32 @@ export class SupabasePriceHistoryRepository implements PriceHistoryRepository {
     checkOut: string,
     days: PriceHistoryRangeDays,
     partySize?: PartySize,
+    since?: string,
   ): Promise<PriceHistory | null> {
     const supabase = await createClient();
     const hotelRowId = await this.resolveHotelRowId(supabase, hotelId);
-    if (!hotelRowId) return this.fallback.getHistory(hotelId, checkIn, checkOut, days);
+    // No matching hotel row, or (below) no rows yet: a stay nobody's
+    // actually tracked/checked a real price for genuinely has no history —
+    // return it empty rather than null, so callers don't mistake "no
+    // history yet" (normal — see HotelProvider.fetchLivePrice) for "hotel
+    // not found" (the bug every never-tracked catalog hotel's detail page
+    // 404 used to be).
+    if (!hotelRowId) return { hotelId, checkIn, checkOut, currency: "KRW", points: [] };
 
-    const since = addDaysISO(todayISO(), -(days - 1));
+    // The day-range window (days) and the tracking-start floor (since) are
+    // both lower bounds on checked_at — use whichever is later, so a
+    // long-running tracking still respects the 7/30/90-day toggle, and a
+    // freshly-started one never reaches back before it began.
+    const sinceDays = addDaysISO(todayISO(), -(days - 1));
+    const effectiveSince = since && since > sinceDays ? since : sinceDays;
+
     let query = supabase
       .from("hotel_price_history")
       .select("checked_at, price, currency")
       .eq("hotel_id", hotelRowId)
       .eq("check_in", checkIn)
       .eq("check_out", checkOut)
-      .gte("checked_at", since);
+      .gte("checked_at", effectiveSince);
     if (partySize) {
       query = query
         .eq("adults", partySize.adults)
@@ -180,29 +197,17 @@ export class SupabasePriceHistoryRepository implements PriceHistoryRepository {
     }
     const { data, error } = await query.order("checked_at", { ascending: true });
     if (error) throw error;
-    if (data && data.length > 0) {
-      return {
-        hotelId,
-        checkIn,
-        checkOut,
-        currency: data[0].currency as Currency,
-        points: data.map((row) => ({
-          checkedAt: String(row.checked_at).slice(0, 10),
-          price: Number(row.price),
-        })),
-      };
-    }
 
-    // No real rows for this exact stay yet. The mock generator only knows
-    // about mockHotels (the old mock catalog) — it correctly returns
-    // something for one of those (kept working below), but null for a real
-    // SerpApi-catalog hotel. For a SerpApi hotel, "nobody's checked yet" is
-    // a normal, expected state (search/detail pages never call SerpApi
-    // themselves — see HotelProvider.fetchLivePrice), not a reason for the
-    // caller to treat this hotel as not found — that was the actual bug
-    // behind every never-tracked catalog hotel's detail page 404ing.
-    const mockFallback = await this.fallback.getHistory(hotelId, checkIn, checkOut, days);
-    return mockFallback ?? { hotelId, checkIn, checkOut, currency: "KRW", points: [] };
+    return {
+      hotelId,
+      checkIn,
+      checkOut,
+      currency: (data?.[0]?.currency as Currency) ?? "KRW",
+      points: (data ?? []).map((row) => ({
+        checkedAt: String(row.checked_at).slice(0, 10),
+        price: Number(row.price),
+      })),
+    };
   }
 
   /** Writes always go through the admin client — hotel_price_history has no INSERT policy for anon/authenticated (see supabase/migrations/0001_init.sql), only service_role. */

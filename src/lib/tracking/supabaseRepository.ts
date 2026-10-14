@@ -36,10 +36,11 @@ interface TrackedHotelRow {
   target_price: number | string;
   notify_on_any_drop: boolean;
   notify_on_new_low: boolean;
+  created_at: string;
 }
 
 const TRACKED_HOTEL_COLUMNS =
-  "check_in, check_out, adults, children, rooms, currency, target_price, notify_on_any_drop, notify_on_new_low";
+  "check_in, check_out, adults, children, rooms, currency, target_price, notify_on_any_drop, notify_on_new_low, created_at";
 
 function toSettings(row: TrackedHotelRow, hotelId: string): PriceTrackingSettings {
   return {
@@ -53,6 +54,7 @@ function toSettings(row: TrackedHotelRow, hotelId: string): PriceTrackingSetting
     targetPrice: Number(row.target_price),
     notifyOnAnyDrop: row.notify_on_any_drop,
     notifyOnNewLow: row.notify_on_new_low,
+    trackingStartedAt: row.created_at,
   };
 }
 

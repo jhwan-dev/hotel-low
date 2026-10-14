@@ -56,7 +56,10 @@ export class MockTrackedHotelsRepository implements TrackedHotelsRepository {
     const index = this.rows.findIndex((r) =>
       matches(r, input.hotelId, input.checkIn, input.checkOut),
     );
-    const row: PriceTrackingSettings = { ...input, targetPrice };
+    // Preserve the original trackingStartedAt across a settings edit
+    // (update) — only a fresh tracking (no existing row) gets a new one.
+    const trackingStartedAt = index >= 0 ? this.rows[index].trackingStartedAt : new Date().toISOString();
+    const row: PriceTrackingSettings = { ...input, targetPrice, trackingStartedAt };
     if (index >= 0) {
       this.rows[index] = row;
     } else {

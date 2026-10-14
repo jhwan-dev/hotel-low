@@ -110,7 +110,8 @@ export class AgodaHotelProvider implements HotelProvider {
     checkOut: string,
     days: PriceHistoryRangeDays,
     partySize?: PartySize,
+    since?: string,
   ) {
-    return this.historyRepository.getHistory(hotelId, checkIn, checkOut, days, partySize);
+    return this.historyRepository.getHistory(hotelId, checkIn, checkOut, days, partySize, since);
   }
 }
