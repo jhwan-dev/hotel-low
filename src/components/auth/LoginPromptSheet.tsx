@@ -23,7 +23,7 @@ export function LoginPromptSheet({ open, onClose, next }: LoginPromptSheetProps)
             로그인하면 추적 목록이 저장되고, 가격이 내려가면 알려드려요.
           </p>
         </div>
-        <EmailMagicLinkForm next={next} />
+        <EmailMagicLinkForm next={next} onSuccess={onClose} />
       </div>
     </BottomSheet>
   );

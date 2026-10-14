@@ -11,9 +11,20 @@ import { createClient } from "@/lib/supabase/client";
 export interface EmailMagicLinkFormProps {
   /** Where to land after a successful login. Must be a same-site path. */
   next?: string;
+  /**
+   * Called right after a successful login (OTP or reviewer password),
+   * before the redirect. `next` is very often the page the form is
+   * already showing on (e.g. a LoginPromptSheet's `next` is just the
+   * current path) — `router.push(next)` alone is then a no-op navigation
+   * and this form's own "code"/"password" step state never resets, so a
+   * caller rendering this inside a modal (LoginPromptSheet) MUST pass this
+   * to close it. Otherwise the OTP input just sits there, looking like
+   * nothing happened even though the user is now signed in.
+   */
+  onSuccess?: () => void;
 }
 
-type Step = "trigger" | "email" | "code" | "password";
+type Step = "trigger" | "email" | "code" | "password" | "success";
 
 const CODE_LENGTH = 6;
 
@@ -26,7 +37,7 @@ const CODE_LENGTH = 6;
  * the code back in here instead completes sign-in in this exact tab, with
  * no navigation or hand-off involved.
  */
-export function EmailMagicLinkForm({ next = "/" }: EmailMagicLinkFormProps) {
+export function EmailMagicLinkForm({ next = "/", onSuccess }: EmailMagicLinkFormProps) {
   const router = useRouter();
   const [step, setStep] = useState<Step>("trigger");
   const [email, setEmail] = useState("");
@@ -72,6 +83,8 @@ export function EmailMagicLinkForm({ next = "/" }: EmailMagicLinkFormProps) {
       setError("코드가 올바르지 않거나 만료됐어요.");
       return;
     }
+    setStep("success");
+    onSuccess?.();
     router.push(next);
     router.refresh();
   }
@@ -87,8 +100,18 @@ export function EmailMagicLinkForm({ next = "/" }: EmailMagicLinkFormProps) {
       setError("로그인하지 못했어요.");
       return;
     }
+    setStep("success");
+    onSuccess?.();
     router.push(next);
     router.refresh();
+  }
+
+  if (step === "success") {
+    return (
+      <p className="flex w-full items-center justify-center gap-2 rounded-control bg-primary-light p-4 text-small font-semibold text-primary">
+        ✓ 로그인됐어요
+      </p>
+    );
   }
 
   if (step === "password") {
