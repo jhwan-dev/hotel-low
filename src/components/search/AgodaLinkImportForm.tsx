@@ -23,6 +23,37 @@ export function AgodaLinkImportForm() {
   const [loginPromptOpen, setLoginPromptOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
+  /**
+   * iOS's share sheet "Copy" sometimes puts the title and the URL on the
+   * clipboard as two separate items (text/plain = just the title, the URL
+   * only in text/uri-list or as an <a href> inside text/html) rather than
+   * one combined string — confirmed via a real production paste that
+   * reached the server with zero URL in it at all (see
+   * importFromAgodaLink's diagnostic log). The default paste-into-input
+   * behavior only ever reads text/plain, so it silently drops the link in
+   * that case. Check the other clipboard formats ourselves and splice the
+   * URL back in before that happens.
+   */
+  function handlePaste(e: React.ClipboardEvent<HTMLInputElement>) {
+    const plain = e.clipboardData.getData("text/plain");
+    if (/https?:\/\//i.test(plain)) return; // already has a link — default paste is fine as-is
+
+    const uriList = e.clipboardData.getData("text/uri-list");
+    const html = e.clipboardData.getData("text/html");
+    let url: string | null = null;
+    if (uriList) {
+      url = uriList.split(/\r?\n/).map((line) => line.trim()).find((line) => line && !line.startsWith("#")) ?? null;
+    }
+    if (!url && html) {
+      const match = /<a\s[^>]*href=["']([^"']+)["']/i.exec(html);
+      if (match) url = match[1];
+    }
+    if (!url) return; // nothing extra found — let the normal (text-only) paste happen
+
+    e.preventDefault();
+    setInput(plain ? `${plain} ${url}` : url);
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!input.trim()) return;
@@ -73,6 +104,7 @@ export function AgodaLinkImportForm() {
         <Input
           value={input}
           onChange={(e) => setInput(e.target.value)}
+          onPaste={handlePaste}
           placeholder="아고다 호텔 링크나 공유 문구를 붙여넣으세요"
           leftIcon={<LinkIcon width={18} height={18} />}
           autoComplete="off"
