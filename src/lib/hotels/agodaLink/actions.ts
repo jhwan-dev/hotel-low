@@ -62,9 +62,24 @@ export async function importFromAgodaLink(rawInput: string): Promise<AgodaImport
   if (!user) return { error: "로그인이 필요해요." };
 
   const found = extractUrlFromText(rawInput);
-  if (!found) return { error: INVALID_LINK_ERROR };
+  if (!found) {
+    // Temporary diagnostic — a real user hit this on production with text
+    // that looked valid by every local test case tried so far. Logs the
+    // exact bytes (char codes, not just the string) so a copy-paste-lost
+    // character (smart punctuation, a non-breaking space, a BOM, ...)
+    // shows up even if it's invisible in a terminal or chat message.
+    console.error("importFromAgodaLink: no URL found in input", {
+      length: rawInput.length,
+      codes: [...rawInput].map((c) => c.codePointAt(0)).join(","),
+      text: rawInput,
+    });
+    return { error: INVALID_LINK_ERROR };
+  }
   const { url, startIndex } = found;
-  if (url.protocol !== "https:") return { error: INVALID_LINK_ERROR };
+  if (url.protocol !== "https:") {
+    console.error("importFromAgodaLink: non-https url found", { url: url.toString() });
+    return { error: INVALID_LINK_ERROR };
+  }
 
   // Best-effort — null just means the slug-based (hl=en) matching path
   // below handles it alone, exactly like a bare pasted link always did.
