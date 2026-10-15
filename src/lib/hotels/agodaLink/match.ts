@@ -30,6 +30,18 @@ import { weightedTokenScore } from "./similarity";
  * downweights whatever word every candidate in the pool shares and
  * upweights whatever word only a few do, which is exactly what
  * disambiguates branches of the same chain.
+ *
+ * Also calibrated for the Korean-name path (hl=ko, used when the share
+ * text's own name is available) against all 400+ catalog hotels' real
+ * hl=ko names directly (no proxy needed — every hotel already has one):
+ * different hotels in the same city scored up to 0.454 (excluding ties
+ * where a query name is a strict word-subset of a sibling's longer name,
+ * e.g. "인터컨티넨탈 도쿄" vs "인터컨티넨탈 도쿄 베이" — those legitimately
+ * tie at 1.0 under this directional scoring and fall through to the
+ * candidate picker via the MARGIN check below, which is the correct,
+ * safe outcome for a genuinely ambiguous short query). Same constants
+ * work for both languages — the algorithm only reasons about whole
+ * tokens and corpus frequency, not about what script they're written in.
  */
 const HIGH_THRESHOLD = 0.7;
 const MARGIN = 0.15;
@@ -122,6 +134,8 @@ export async function resolveOrInsertCatalogEntry(
   candidate: AgodaCandidate,
   detailPath: string,
   cityGuess: string,
+  /** True when `candidate.name` came from an hl=en query (English) and still needs swapping for the real hl=ko name later — see resolveProvisionalName. False when it's already a real Korean name (hl=ko match, or the user's own share-text). */
+  nameIsProvisional: boolean,
 ): Promise<string> {
   const existing = await hotelCatalog.findByProviderHotelId(candidate.propertyToken);
   const admin = createAdminClient();
@@ -146,6 +160,7 @@ export async function resolveOrInsertCatalogEntry(
     images: candidate.image ? [candidate.image] : [],
     amenities: [],
     agodaDetailPath: detailPath,
+    nameIsProvisional,
   });
 }
 
@@ -155,6 +170,16 @@ export async function resolveOrInsertCatalogEntry(
  * returning candidates for the user to pick from. `citycode` is the raw
  * value from the URL (e.g. "osaka-jp") — this derives both the SerpApi
  * query's city term and, on insert, the catalog row's city/country.
+ *
+ * `koreanName`, when given, is the hotel name pulled from the share
+ * sentence's own text (see parse.ts's extractHotelNameFromText) — a real
+ * display name, not a guess, and in the same language (hl=ko) the
+ * catalog's other 400 hotels were seeded in. When present this entirely
+ * replaces the English-slug approach: query *and* score in Korean, so
+ * there's no cross-language mismatch to fight (that mismatch is exactly
+ * why the slug path needs hl=en in the first place — see below). Falls
+ * back to the slug whenever there's no usable name text, so a bare pasted
+ * link keeps working exactly as before.
  */
 export async function matchAgodaLink(
   detailPath: string,
@@ -162,6 +187,7 @@ export async function matchAgodaLink(
   citycode: string,
   stay: StayQuery,
   userId: string,
+  koreanName?: string | null,
 ): Promise<MatchResult> {
   const existing = await hotelCatalog.findByAgodaDetailPath(detailPath);
   if (existing) return { kind: "resolved", appHotelId: existing.appHotelId };
@@ -180,13 +206,23 @@ export async function matchAgodaLink(
   }
 
   const cityGuess = cityGuessFromCityCode(citycode);
-  const name = deslugifyHotelName(slug);
-  // Skip appending cityGuess when the de-slugified name already contains
-  // it (true for most hotel slugs, which bake the city into their own
-  // name) — a repeated word in the query doesn't help Google disambiguate
-  // and risks diluting relevance. See the real failure case this was
-  // found from: scripts/.output/coverage/debug-toyoko-sakuranomiya.json.
-  const queryTerms = name.toLowerCase().includes(cityGuess.toLowerCase()) ? name : `${name} ${cityGuess}`;
+  // hl=ko + the real Korean name when we have one; hl=en + the de-slugified
+  // English name otherwise. Either way `queryName` is what gets both sent
+  // to SerpApi and compared against the candidates it returns — same
+  // language on both sides of that comparison, every time.
+  const hl = koreanName ? "ko" : "en";
+  const queryName = koreanName ?? deslugifyHotelName(slug);
+  const nameIsProvisional = !koreanName;
+  // Skip appending cityGuess when queryName already contains it (true for
+  // most English slugs, which bake the city into their own name) — a
+  // repeated word doesn't help Google disambiguate and risks diluting
+  // relevance (see the real failure case this was found from:
+  // scripts/.output/coverage/debug-toyoko-sakuranomiya.json). Korean names
+  // never textually contain the English cityGuess, so this only ever
+  // short-circuits on the slug path.
+  const queryTerms = queryName.toLowerCase().includes(cityGuess.toLowerCase())
+    ? queryName
+    : `${queryName} ${cityGuess}`;
 
   let raw: SerpApiSearchResponse;
   try {
@@ -196,7 +232,7 @@ export async function matchAgodaLink(
       checkOut: stay.checkOut,
       adults: stay.adults,
       children: stay.children,
-      hl: "en",
+      hl,
     });
   } catch (err) {
     console.error("matchAgodaLink: SerpApi search failed", err);
@@ -209,21 +245,33 @@ export async function matchAgodaLink(
   }
 
   if (candidates.length === 1) {
-    const appHotelId = await resolveOrInsertCatalogEntry(toCandidate(candidates[0]), detailPath, cityGuess);
+    const appHotelId = await resolveOrInsertCatalogEntry(
+      toCandidate(candidates[0]),
+      detailPath,
+      cityGuess,
+      nameIsProvisional,
+    );
     return { kind: "resolved", appHotelId };
   }
 
   // corpus = every candidate name in *this* response — weightedTokenScore
   // uses it to figure out which words are chain-wide boilerplate (shared
-  // by most/all of them, downweighted) vs. actually distinguishing.
+  // by most/all of them, downweighted) vs. actually distinguishing. Works
+  // the same way regardless of language — it only ever looks at whole
+  // tokens and how many candidates share each one.
   const corpus = candidates.map((p) => p.name);
   const scored = candidates
-    .map((p) => ({ property: p, score: weightedTokenScore(name, p.name, corpus) }))
+    .map((p) => ({ property: p, score: weightedTokenScore(queryName, p.name, corpus) }))
     .sort((a, b) => b.score - a.score);
   const [top, second] = scored;
 
   if (top.score >= HIGH_THRESHOLD && (!second || top.score - second.score >= MARGIN)) {
-    const appHotelId = await resolveOrInsertCatalogEntry(toCandidate(top.property), detailPath, cityGuess);
+    const appHotelId = await resolveOrInsertCatalogEntry(
+      toCandidate(top.property),
+      detailPath,
+      cityGuess,
+      nameIsProvisional,
+    );
     return { kind: "resolved", appHotelId };
   }
 

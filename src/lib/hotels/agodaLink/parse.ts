@@ -18,6 +18,93 @@ export interface ParsedAgodaLink {
 const DETAIL_PATH_PATTERN = /^([^/]+)\/hotel\/([^/]+)\.html$/i;
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
+// ---------------------------------------------------------------------------
+// Free-text extraction — the iPhone Agoda app's native share sheet copies
+// a whole sentence, not a bare URL ("호텔 선라이트 신주쿠 확인하기
+// https://www.agoda.com/sh-app/..."), so the paste box has to pull both
+// the link and (best-effort) the hotel name back out of that sentence.
+// ---------------------------------------------------------------------------
+
+const URL_PATTERN = /https?:\/\/[^\s<>"']+/gi;
+// Trailing punctuation a URL regex can accidentally sweep in when the link
+// sits mid-sentence (end of a Korean sentence, a closing paren, etc.).
+const URL_TRAILING_PUNCTUATION = /[.,!?)\]'"”’]+$/;
+
+function looksLikeAgodaUrl(url: URL): boolean {
+  return url.hostname.toLowerCase().includes("agoda");
+}
+
+/**
+ * Finds every http(s) URL in free text and returns the best one to treat
+ * as "the pasted link" — an Agoda-looking host wins if there's more than
+ * one (a share sentence could plausibly contain another URL, e.g. a
+ * tracking pixel or a shortener domain unrelated to Agoda), otherwise the
+ * first URL found. Returns the URL plus where it starts/ends in `text` so
+ * callers can look at whatever text surrounds it. Null when no URL at all.
+ */
+export function extractUrlFromText(text: string): { url: URL; startIndex: number; endIndex: number } | null {
+  const candidates: { url: URL; startIndex: number; endIndex: number }[] = [];
+  for (const match of text.matchAll(URL_PATTERN)) {
+    const raw = match[0];
+    const trimmed = raw.replace(URL_TRAILING_PUNCTUATION, "");
+    if (!trimmed) continue;
+    try {
+      const startIndex = match.index ?? 0;
+      candidates.push({ url: new URL(trimmed), startIndex, endIndex: startIndex + trimmed.length });
+    } catch {
+      // Not actually a valid URL once trimmed — skip it.
+    }
+  }
+  if (candidates.length === 0) return null;
+  return candidates.find((c) => looksLikeAgodaUrl(c.url)) ?? candidates[0];
+}
+
+/**
+ * Boilerplate share-sheet phrasing to strip off whatever text surrounds
+ * the link, best-effort — confirmed against the Korean share template
+ * ("<name> 확인하기 <link>"); the English template's exact wording hasn't
+ * been confirmed, so this also covers the common AppsFlyer-style phrasing
+ * ("Check out <name>") as a reasonable guess. Deliberately not meant to be
+ * exhaustive: whatever doesn't match just leaves the surrounding text
+ * as-is, and extractHotelNameFromText below rejects the result if it
+ * still doesn't look like a plausible name rather than guessing wrong.
+ */
+const TRAILING_PHRASES = ["확인하기", "확인해보세요", "확인해보기", "지금 확인하기", "예약하기", "알아보기", "보러가기"];
+const LEADING_PHRASES = ["check out", "check this out", "take a look at", "i found this hotel", "found this hotel"];
+
+function stripShareBoilerplate(text: string): string {
+  let result = text.trim();
+
+  for (const phrase of LEADING_PHRASES) {
+    if (result.toLowerCase().startsWith(phrase)) {
+      result = result.slice(phrase.length).replace(/^[:\-\s]+/, "").trim();
+      break;
+    }
+  }
+  for (const phrase of TRAILING_PHRASES) {
+    if (result.endsWith(phrase)) {
+      result = result.slice(0, -phrase.length).trim();
+      break;
+    }
+  }
+
+  return result.replace(/^["'“”‘’]+|["'“”‘’]+$/g, "").trim();
+}
+
+/**
+ * Best-effort hotel name from the text surrounding a pasted link's URL —
+ * null whenever there's nothing usable (URL was the whole input, nothing
+ * left after stripping boilerplate, or what's left is implausibly short).
+ * Callers must treat this as optional: matching already works from the
+ * URL alone (see match.ts's hl=en slug-based path) when this is null.
+ */
+export function extractHotelNameFromText(text: string, urlStartIndex: number): string | null {
+  const before = text.slice(0, urlStartIndex).trim();
+  if (!before) return null;
+  const stripped = stripShareBoilerplate(before);
+  return stripped.length >= 2 ? stripped : null;
+}
+
 function parsePositiveInt(value: string | null, fallback: number): number {
   if (value === null) return fallback;
   const n = Number.parseInt(value, 10);

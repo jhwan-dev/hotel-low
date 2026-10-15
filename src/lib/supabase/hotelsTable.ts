@@ -105,14 +105,16 @@ export async function updateAgodaPriceStatus(
  * that's intentional, the same "plain insert, never upsert" safety
  * scripts/seed-hotel-catalog.ts relies on.
  *
- * Always sets `name_is_provisional: true` — the only name available at
- * insert time came from an hl=en SerpApi search (English), not the hl=ko
- * convention every seeded row uses — see resolveProvisionalName below for
- * how/when that gets corrected.
+ * `nameIsProvisional` should be true whenever `input.name` came from an
+ * hl=en SerpApi search (English) rather than the hl=ko convention every
+ * seeded row uses — see resolveProvisionalName below for how/when that
+ * gets corrected. match.ts passes false when it already has a real
+ * Korean name (the user's own share-text, or an hl=ko SerpApi match), so
+ * that case never needs correcting at all.
  */
 export async function insertHotelFromAgodaMatch(
   admin: SupabaseClient,
-  input: HotelRowInput & { agodaDetailPath: string },
+  input: HotelRowInput & { agodaDetailPath: string; nameIsProvisional: boolean },
 ): Promise<string> {
   const { data, error } = await admin
     .from("hotels")
@@ -128,7 +130,7 @@ export async function insertHotelFromAgodaMatch(
       images: input.images,
       amenities: input.amenities,
       agoda_detail_path: input.agodaDetailPath,
-      name_is_provisional: true,
+      name_is_provisional: input.nameIsProvisional,
     })
     .select("id")
     .single();

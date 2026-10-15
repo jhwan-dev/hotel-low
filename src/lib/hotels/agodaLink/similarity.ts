@@ -5,12 +5,20 @@
  * decoded from a pasted Agoda URL's slug (see match.ts) — both strings are
  * expected to already be in the same language/script by the time this is
  * called (the slug is always romanized; match.ts queries SerpApi with
- * hl=en so candidate names are too).
+ * hl=en so candidate names are too, OR both sides are Korean when a
+ * share-text hotel name is available — hl=ko).
  */
 function normalize(value: string): string {
+  // \p{L}/\p{N} (Unicode letter/number) rather than a-z0-9 — an ASCII-only
+  // filter silently deletes every Korean/Japanese/Vietnamese character,
+  // which for a mixed-script name like "APA 호텔 신주쿠-가부키쵸 타워"
+  // collapses it down to just "apa" and nothing else. Two completely
+  // different hotels that both happen to share a Latin-script chain prefix
+  // ("APA", "KKR", ...) then score a perfect, meaningless 1.0 — found via
+  // scripts/calibrate-agoda-match.ts's Korean-name calibration pass.
   return value
     .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
     .replace(/\s+/g, " ")
     .trim();
 }

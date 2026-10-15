@@ -2,7 +2,7 @@
 
 import { getCurrentUser } from "@/lib/auth/getCurrentUser";
 import { stayQueryToSearchParams, type StayQuery } from "@/lib/search/stay-query";
-import { parseAgodaDetailUrl, resolveFinalUrl } from "./parse";
+import { extractHotelNameFromText, extractUrlFromText, parseAgodaDetailUrl, resolveFinalUrl } from "./parse";
 import { cityGuessFromCityCode, deslugifyHotelName } from "./slug";
 import { matchAgodaLink, resolveOrInsertCatalogEntry, type AgodaCandidate } from "./match";
 
@@ -22,6 +22,8 @@ export interface AgodaImportCandidates {
   stayExplicit: boolean;
   /** Pre-filled destination for the "목록에 없어요" escape hatch — links to the normal name-search page (/search?destination=...), which already does a loose ilike match against hotel names, not just cities. */
   fallbackSearchQuery: string;
+  /** Whether a candidate the user picks here still needs its name corrected on first tracking-start — see resolveOrInsertCatalogEntry's `nameIsProvisional` param. Same for every candidate in one response (they all came from the same hl=en/hl=ko call). */
+  nameIsProvisional: boolean;
 }
 
 export type AgodaImportResult = AgodaImportResolved | AgodaImportCandidates | AgodaImportError;
@@ -47,22 +49,26 @@ const NOT_A_HOTEL_LINK_ERROR = "이 링크에서 호텔 정보를 찾을 수 없
 
 /**
  * Entry point for the "아고다 링크로 추적하기" input (home + search screens).
- * Never throws — every failure (not logged in, bad URL, blocked/unresolved
- * redirect, no match, rate limit) comes back as `{ error }`, same
- * convention as startTracking (see its own comment for why: an uncaught
- * throw across the Server Action boundary doesn't reliably reach the UI).
+ * Takes whatever the user pasted — a bare URL, or a whole share sentence
+ * like the iPhone app's native share sheet produces ("호텔 선라이트 신주쿠
+ * 확인하기 https://www.agoda.com/sh-app/..."). Never throws — every
+ * failure (not logged in, no URL in the text, blocked/unresolved redirect,
+ * no match, rate limit) comes back as `{ error }`, same convention as
+ * startTracking (see its own comment for why: an uncaught throw across
+ * the Server Action boundary doesn't reliably reach the UI).
  */
-export async function importFromAgodaLink(rawUrl: string): Promise<AgodaImportResult> {
+export async function importFromAgodaLink(rawInput: string): Promise<AgodaImportResult> {
   const user = await getCurrentUser();
   if (!user) return { error: "로그인이 필요해요." };
 
-  let url: URL;
-  try {
-    url = new URL(rawUrl.trim());
-  } catch {
-    return { error: INVALID_LINK_ERROR };
-  }
+  const found = extractUrlFromText(rawInput);
+  if (!found) return { error: INVALID_LINK_ERROR };
+  const { url, startIndex } = found;
   if (url.protocol !== "https:") return { error: INVALID_LINK_ERROR };
+
+  // Best-effort — null just means the slug-based (hl=en) matching path
+  // below handles it alone, exactly like a bare pasted link always did.
+  const koreanName = extractHotelNameFromText(rawInput, startIndex);
 
   let parsed = parseAgodaDetailUrl(url);
   if (!parsed) {
@@ -72,7 +78,14 @@ export async function importFromAgodaLink(rawUrl: string): Promise<AgodaImportRe
   if (!parsed) return { error: NOT_A_HOTEL_LINK_ERROR };
 
   try {
-    const result = await matchAgodaLink(parsed.detailPath, parsed.slug, parsed.citycode, parsed.stay, user.id);
+    const result = await matchAgodaLink(
+      parsed.detailPath,
+      parsed.slug,
+      parsed.citycode,
+      parsed.stay,
+      user.id,
+      koreanName,
+    );
     if (result.kind === "resolved") {
       return { redirectTo: toRedirectTo(result.appHotelId, parsed.stay, parsed.stayExplicit) };
     }
@@ -83,7 +96,8 @@ export async function importFromAgodaLink(rawUrl: string): Promise<AgodaImportRe
         cityGuess: cityGuessFromCityCode(parsed.citycode),
         stay: parsed.stay,
         stayExplicit: parsed.stayExplicit,
-        fallbackSearchQuery: deslugifyHotelName(parsed.slug),
+        fallbackSearchQuery: koreanName ?? deslugifyHotelName(parsed.slug),
+        nameIsProvisional: !koreanName,
       };
     }
     return { error: result.message };
@@ -107,12 +121,13 @@ export async function confirmAgodaCandidate(
   cityGuess: string,
   stay: StayQuery,
   stayExplicit: boolean,
+  nameIsProvisional: boolean,
 ): Promise<AgodaImportResolved | AgodaImportError> {
   const user = await getCurrentUser();
   if (!user) return { error: "로그인이 필요해요." };
 
   try {
-    const appHotelId = await resolveOrInsertCatalogEntry(candidate, detailPath, cityGuess);
+    const appHotelId = await resolveOrInsertCatalogEntry(candidate, detailPath, cityGuess, nameIsProvisional);
     return { redirectTo: toRedirectTo(appHotelId, stay, stayExplicit) };
   } catch (err) {
     console.error("confirmAgodaCandidate: unexpected error", err);

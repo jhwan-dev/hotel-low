@@ -128,6 +128,38 @@ async function main() {
   console.log(
     "실제 체인 호텔 오매칭 사례(scripts/.output/coverage/debug-toyoko-sakuranomiya.json, 토요코인 18개 후보)에서는 weighted 최고점이 0.452, dice 최고점은 0.703이었음 — weighted가 '같은 체인 내 다른 지점'을 훨씬 더 낮게 평가함을 실데이터로 확인.",
   );
+
+  // ---------------------------------------------------------------------
+  // Korean-name path (match.ts's hl=ko branch, used when the share text's
+  // own hotel name is available). Unlike the slug-vs-slug proxy above,
+  // this needs no proxy at all — every one of the 400 catalog hotels
+  // already has a real hl=ko `name` (how they were all seeded), so "wrong
+  // candidate" can be simulated directly: real Korean name vs every real
+  // Korean name of an actually-different hotel in the same city.
+  // ---------------------------------------------------------------------
+  const { data: allHotels, error: allError } = await supabase.from("hotels").select("id, name, city");
+  if (allError) throw allError;
+
+  const byCityAll = new Map<string, { id: string; name: string }[]>();
+  for (const row of (allHotels ?? []) as { id: string; name: string; city: string }[]) {
+    if (!byCityAll.has(row.city)) byCityAll.set(row.city, []);
+    byCityAll.get(row.city)!.push(row);
+  }
+
+  const koreanDifferentHotelWeighted: number[] = [];
+  for (const [, cityRows] of byCityAll) {
+    const corpus = cityRows.map((r) => r.name);
+    for (const a of cityRows) {
+      for (const b of cityRows) {
+        if (a.id === b.id) continue;
+        koreanDifferentHotelWeighted.push(weightedTokenScore(a.name, b.name, corpus));
+      }
+    }
+  }
+  console.log(`\n--- [한국어 이름, weighted] 카탈로그 전체 ${allHotels?.length ?? 0}개 호텔, 실제 이름 vs 같은 도시의 '다른' 실제 이름 ---`);
+  stats("different-hotel (ko weighted)", koreanDifferentHotelWeighted);
+  const koreanCeil = ceiling(koreanDifferentHotelWeighted);
+  console.log(`한국어 경로 상한선: p99=${koreanCeil.p99.toFixed(3)} max=${koreanCeil.max.toFixed(3)}`);
 }
 
 main().catch((err) => {

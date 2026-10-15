@@ -17,7 +17,7 @@ import type { AgodaCandidate } from "@/lib/hotels/agodaLink/match";
 export function AgodaLinkImportForm() {
   const router = useRouter();
   const pathname = usePathname();
-  const [url, setUrl] = useState("");
+  const [input, setInput] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [candidateState, setCandidateState] = useState<AgodaImportCandidates | null>(null);
   const [loginPromptOpen, setLoginPromptOpen] = useState(false);
@@ -25,12 +25,12 @@ export function AgodaLinkImportForm() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!url.trim()) return;
+    if (!input.trim()) return;
     setError(null);
     setCandidateState(null);
 
     startTransition(async () => {
-      const result = await importFromAgodaLink(url.trim());
+      const result = await importFromAgodaLink(input.trim());
       if ("error" in result) {
         if (result.error === "로그인이 필요해요.") {
           setLoginPromptOpen(true);
@@ -57,6 +57,7 @@ export function AgodaLinkImportForm() {
         candidateState.cityGuess,
         candidateState.stay,
         candidateState.stayExplicit,
+        candidateState.nameIsProvisional,
       );
       if ("error" in result) {
         setError(result.error);
@@ -70,14 +71,14 @@ export function AgodaLinkImportForm() {
     <div className="flex flex-col gap-3 rounded-card border border-border bg-surface p-4">
       <form onSubmit={handleSubmit} className="flex flex-col gap-2">
         <Input
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          placeholder="아고다 호텔 링크를 붙여넣으세요"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="아고다 호텔 링크나 공유 문구를 붙여넣으세요"
           leftIcon={<LinkIcon width={18} height={18} />}
           autoComplete="off"
           disabled={isPending}
         />
-        <Button type="submit" variant="outline" size="md" fullWidth disabled={isPending || !url.trim()}>
+        <Button type="submit" variant="outline" size="md" fullWidth disabled={isPending || !input.trim()}>
           {isPending ? "확인 중..." : "아고다 링크로 추적하기"}
         </Button>
       </form>
