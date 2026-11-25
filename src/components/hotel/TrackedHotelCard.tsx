@@ -49,6 +49,8 @@ export function TrackedHotelCard({
     childrenAges: [],
   }).toString()}`;
   const isDrop = changePercent !== null && changePercent < 0;
+  // Null when lastCheckedAt is missing or unreadable — see formatRelativeDays.
+  const lastCheckedLabel = formatRelativeDays(lastCheckedAt);
 
   function stop() {
     startTransition(async () => {
@@ -143,10 +145,10 @@ export function TrackedHotelCard({
         )}
 
         <div className="mt-auto flex items-center justify-between gap-2 pt-1">
-          {lastCheckedAt ? (
+          {lastCheckedLabel ? (
             <span className="inline-flex items-center gap-1 text-caption text-ink-muted">
               <ClockIcon width={12} height={12} />
-              {formatRelativeDays(lastCheckedAt)}
+              {lastCheckedLabel}
             </span>
           ) : (
             <span />

@@ -47,7 +47,7 @@ export function NotificationListItem({ notification }: NotificationListItemProps
           {notificationTypeLabel[notification.type]}
         </Badge>
         <span className="text-caption text-ink-muted">
-          {formatRelativeDays(notification.sentAt.slice(0, 10))}
+          {formatRelativeDays(notification.sentAt)}
         </span>
       </div>
 

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui";
 import { signOut } from "@/lib/auth/actions";
 import { getCurrentUser } from "@/lib/auth/getCurrentUser";
 import { notificationService } from "@/lib/notifications";
+import { baseOpenGraph, baseTwitter, SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL } from "@/lib/site";
 import "./globals.css";
 
 const inter = Inter({
@@ -17,12 +18,17 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
+  // Without this, og:image (from app/opengraph-image.tsx) and og:url can't be
+  // resolved to absolute URLs and link previews come out blank.
+  metadataBase: new URL(SITE_URL),
+  applicationName: SITE_NAME,
   title: {
-    default: "HOTELow — 호텔 가격이 내려가면 알려드려요",
+    default: SITE_TITLE,
     template: "%s | HOTELow",
   },
-  description:
-    "여행 날짜와 호텔을 선택하면 가격을 지속적으로 추적하고, 가격이 내려갔을 때 알려드립니다.",
+  description: SITE_DESCRIPTION,
+  openGraph: baseOpenGraph(),
+  twitter: baseTwitter(),
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {

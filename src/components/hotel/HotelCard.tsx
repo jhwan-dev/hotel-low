@@ -17,6 +17,9 @@ export interface HotelCardProps {
 export function HotelCard({ result, stay }: HotelCardProps) {
   const { hotel, price } = result;
   const detailHref = `/hotels/${hotel.id}?${stayQueryToSearchParams(stay).toString()}`;
+  // Null when there's no readable checkedAt — the line is left out entirely
+  // rather than rendering "NaN일 전 확인".
+  const checkedLabel = formatRelativeDays(price?.checkedAt);
 
   return (
     <Card className="overflow-hidden">
@@ -51,10 +54,10 @@ export function HotelCard({ result, stay }: HotelCardProps) {
               <p className="text-small text-ink-muted tabular-nums">
                 {formatPrice(price.totalPrice, price.currency)} / {price.nights}박
               </p>
-              {price.checkedAt && (
+              {checkedLabel && (
                 <span className="inline-flex items-center gap-1 text-caption text-ink-muted">
                   <ClockIcon width={12} height={12} />
-                  {formatRelativeDays(price.checkedAt)} · 쿠폰 등으로 실제가는 더 낮을 수 있어요
+                  {checkedLabel} · 쿠폰 등으로 실제가는 더 낮을 수 있어요
                 </span>
               )}
             </>
