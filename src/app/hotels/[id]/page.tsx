@@ -12,6 +12,7 @@ import { shrinkHotelImage } from "@/lib/hotels/imageUrl";
 import { computePriceStatus, priceStatusToneClasses, toTotalPoints } from "@/lib/hotels/price-history";
 import { getMyTrackingStatus } from "@/lib/tracking/queries";
 import { formatRelativeDays, nightsBetween } from "@/lib/date";
+import { baseOpenGraph, baseTwitter, SITE_NAME } from "@/lib/site";
 import {
   firstParam,
   hasExplicitStay,
@@ -31,9 +32,39 @@ export async function generateMetadata(
 
   if (!entry) return { title: "호텔을 찾을 수 없어요" };
 
+  const title = `${entry.name} | ${SITE_NAME}`;
+  // The route handler behind app/opengraph-image.tsx; named explicitly
+  // because a page-level `openGraph` replaces the layout's — including the
+  // image the file convention had attached there — so without this a shared
+  // hotel link would come back as a card with no picture.
+  const ogImage = {
+    url: "/opengraph-image",
+    type: "image/png",
+    width: 1200,
+    height: 630,
+    alt: title,
+  };
+
   return {
     title: entry.name,
     description: entry.description,
+    // Hotel links are the ones people actually paste into chats, so the
+    // preview carries this hotel's name rather than the site-wide default.
+    // baseOpenGraph is spread because a page-level `openGraph` replaces the
+    // layout's instead of merging into it (see src/lib/site.ts).
+    openGraph: {
+      ...baseOpenGraph(),
+      title,
+      description: entry.description,
+      url: `/hotels/${id}`,
+      images: [ogImage],
+    },
+    twitter: {
+      ...baseTwitter(),
+      title,
+      description: entry.description,
+      images: [ogImage],
+    },
   };
 }
 
@@ -84,6 +115,9 @@ export default async function HotelDetailPage(props: PageProps<"/hotels/[id]">) 
     price && totalPoints.length >= 2
       ? computePriceStatus(price.totalPrice, previousTotal, last30Total, price.currency)
       : null;
+  // Null when there's no usable checkedAt (see formatRelativeDays) — then this
+  // is just "현재 가격" with no "N일 전 확인" line, never "NaN일 전 확인".
+  const priceCheckedLabel = formatRelativeDays(price?.checkedAt);
 
   return (
     <Container className="flex flex-col gap-5 py-4">
@@ -148,12 +182,12 @@ export default async function HotelDetailPage(props: PageProps<"/hotels/[id]">) 
       <div className="flex flex-col gap-3 rounded-card border border-border bg-surface p-5">
         <div className="flex items-center justify-between">
           <span className="text-small text-ink-muted">
-            {price?.checkedAt ? "최근 확인 가격" : "현재 가격"}
+            {priceCheckedLabel ? "최근 확인 가격" : "현재 가격"}
           </span>
-          {price?.checkedAt && (
+          {priceCheckedLabel && (
             <span className="inline-flex items-center gap-1 text-caption text-ink-muted">
               <ClockIcon width={12} height={12} />
-              {formatRelativeDays(price.checkedAt)}
+              {priceCheckedLabel}
             </span>
           )}
         </div>

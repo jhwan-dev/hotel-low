@@ -11,6 +11,7 @@ import { getLowAvailabilityHotels } from "@/lib/hotels/low-availability";
 import { getMyTrackedHotels } from "@/lib/tracking/queries";
 import { resolveTrackingDashboard } from "@/lib/tracking/resolveTrackingDashboard";
 import { formatPrice } from "@/lib/format";
+import { baseOpenGraph, baseTwitter, SITE_DESCRIPTION, SITE_TITLE } from "@/lib/site";
 import { stayQueryToSearchParams } from "@/lib/search/stay-query";
 
 // All three curated sections are computed relative to today (or read the
@@ -18,10 +19,20 @@ import { stayQueryToSearchParams } from "@/lib/search/stay-query";
 // prerender at build time and freeze on that snapshot.
 export const dynamic = "force-dynamic";
 
+// The homepage is the one page whose canonical share URL is the site root, so
+// it's the only page that pins openGraph.url — everything else inherits the
+// layout's baseOpenGraph (spreading it first, since a page-level openGraph
+// replaces rather than merges with the layout's).
 export const metadata: Metadata = {
-  title: "HOTELow — 호텔 가격이 내려가면 알려드려요",
-  description:
-    "여행 날짜와 호텔을 선택하면 가격 변화를 계속 추적하고, 가격이 내려갔을 때 알려드립니다.",
+  title: SITE_TITLE,
+  description: SITE_DESCRIPTION,
+  openGraph: {
+    ...baseOpenGraph(),
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    url: "/",
+  },
+  twitter: baseTwitter(),
 };
 
 /** Unwraps a Promise.allSettled result to its value, logging and falling back to `fallback` on rejection — one failed section (e.g. a Supabase hiccup) degrades that section instead of crashing the whole page. */
