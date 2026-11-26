@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Analytics } from "@vercel/analytics/next";
 import { Inter } from "next/font/google";
 import Script from "next/script";
 import Link from "next/link";
@@ -16,13 +17,28 @@ const inter = Inter({
   subsets: ["latin"],
 });
 
+const siteDescription =
+  "여행 날짜와 호텔을 선택하면 가격을 지속적으로 추적하고, 가격이 내려갔을 때 알려드립니다.";
+
 export const metadata: Metadata = {
+  metadataBase: new URL("https://hotel-low.com"),
   title: {
     default: "HOTELow — 호텔 가격이 내려가면 알려드려요",
     template: "%s | HOTELow",
   },
-  description:
-    "여행 날짜와 호텔을 선택하면 가격을 지속적으로 추적하고, 가격이 내려갔을 때 알려드립니다.",
+  description: siteDescription,
+  openGraph: {
+    type: "website",
+    locale: "ko_KR",
+    siteName: "HOTELow",
+    title: "HOTELow — 호텔 가격이 내려가면 알려드려요",
+    description: siteDescription,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "HOTELow — 호텔 가격이 내려가면 알려드려요",
+    description: siteDescription,
+  },
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
@@ -70,6 +86,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         />
         <main className="flex-1 pb-20 md:pb-8">{children}</main>
         <BottomNav />
+        <Analytics />
       </body>
       {/* 트래블페이아웃 Drive 사이트 인증용 — 자동 링크 변환 기능은 대시보드에서 끔 */}
       <Script

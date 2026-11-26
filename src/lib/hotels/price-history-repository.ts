@@ -259,7 +259,7 @@ export class SupabasePriceHistoryRepository implements PriceHistoryRepository {
     return {
       nightlyPrice: Number(data.price),
       currency: data.currency as Currency,
-      checkedAt: String(data.checked_at),
+      checkedAt: String(data.checked_at).slice(0, 10),
       provider: data.provider as PriceProvider,
     };
   }
@@ -298,7 +298,7 @@ export class SupabasePriceHistoryRepository implements PriceHistoryRepository {
       latestByHotel.set(row.hotel_id, {
         nightlyPrice: Number(row.price),
         currency: row.currency as Currency,
-        checkedAt: String(row.checked_at),
+        checkedAt: String(row.checked_at).slice(0, 10),
         provider: row.provider as PriceProvider,
       });
     }

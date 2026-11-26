@@ -31,9 +31,24 @@ export async function generateMetadata(
 
   if (!entry) return { title: "호텔을 찾을 수 없어요" };
 
+  // Shared-link card (KakaoTalk, iMessage, Slack, …) — the hotel's own
+  // photo + name/description, not the site-wide default OG image.
+  const image = entry.images[0] ? shrinkHotelImage(entry.images[0], 1200) : undefined;
+
   return {
     title: entry.name,
     description: entry.description,
+    openGraph: {
+      title: entry.name,
+      description: entry.description,
+      images: image ? [image] : undefined,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: entry.name,
+      description: entry.description,
+      images: image ? [image] : undefined,
+    },
   };
 }
 
