@@ -1,4 +1,4 @@
-import { nightsBetween, todayISO } from "@/lib/date";
+import { nightsBetween, seoulDayRangeUTC, todayISO } from "@/lib/date";
 import type { HotelCatalog, HotelCatalogEntry } from "@/lib/hotels/catalog";
 import type { LatestPrice, PriceHistoryRepository } from "@/lib/hotels/price-history-repository";
 import type {
@@ -66,10 +66,23 @@ export class SerpApiHotelProvider implements HotelProvider {
     if (!latest) return { hotel, price: null };
 
     const nights = nightsBetween(params.checkIn, params.checkOut);
-    const booking = buildBookingUrl(
-      { hid: entry.agodaHid, detailPath: entry.agodaDetailPath },
-      { ...partySize, checkIn: params.checkIn, checkOut: params.checkOut, childrenAges: params.childrenAges },
-    );
+
+    // The stored booking_url (when this exact check captured a live Agoda
+    // redirect) lands closer to the real bookable price than the
+    // reconstructed link below — but that redirect can expire, so only
+    // trust it the same day it was recorded (Asia/Seoul calendar day, not
+    // a UTC-date string compare — see checkedAtRaw's own comment).
+    const { startUTC, endUTC } = seoulDayRangeUTC();
+    const checkedAtMs = new Date(latest.checkedAtRaw).getTime();
+    const storedLinkIsFresh =
+      !!latest.bookingUrl && checkedAtMs >= new Date(startUTC).getTime() && checkedAtMs < new Date(endUTC).getTime();
+
+    const booking = storedLinkIsFresh
+      ? { url: latest.bookingUrl as string, kind: "live" as const }
+      : buildBookingUrl(
+          { hid: entry.agodaHid, detailPath: entry.agodaDetailPath },
+          { ...partySize, checkIn: params.checkIn, checkOut: params.checkOut, childrenAges: params.childrenAges },
+        );
     const price: RoomPrice = {
       hotelId: entry.appHotelId,
       provider: latest.provider,

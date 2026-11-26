@@ -20,8 +20,13 @@ import type {
 export interface LatestPrice {
   nightlyPrice: number;
   currency: Currency;
+  /** YYYY-MM-DD, UTC-sliced — display only (see formatRelativeDays). Not precise enough for a KST same-day decision; use checkedAtRaw for that. */
   checkedAt: string;
+  /** The untouched checked_at timestamptz — lets a caller decide "same day" against Asia/Seoul (see seoulDayRangeUTC) without the UTC-slicing checkedAt above already did. */
+  checkedAtRaw: string;
   provider: PriceProvider;
+  /** Whatever was recorded alongside this price — a live Agoda redirect if that check captured one, a reconstructed link, or null. Only trustworthy same-day (checkedAtRaw) — see SerpApiHotelProvider.buildResult. */
+  bookingUrl: string | null;
 }
 
 export interface RecordPriceInput extends PartySize {
@@ -243,7 +248,7 @@ export class SupabasePriceHistoryRepository implements PriceHistoryRepository {
 
     const { data, error } = await supabase
       .from("hotel_price_history")
-      .select("price, currency, checked_at, provider")
+      .select("price, currency, checked_at, provider, booking_url")
       .eq("hotel_id", hotelRowId)
       .eq("check_in", checkIn)
       .eq("check_out", checkOut)
@@ -260,7 +265,9 @@ export class SupabasePriceHistoryRepository implements PriceHistoryRepository {
       nightlyPrice: Number(data.price),
       currency: data.currency as Currency,
       checkedAt: String(data.checked_at).slice(0, 10),
+      checkedAtRaw: String(data.checked_at),
       provider: data.provider as PriceProvider,
+      bookingUrl: data.booking_url,
     };
   }
 
@@ -281,7 +288,7 @@ export class SupabasePriceHistoryRepository implements PriceHistoryRepository {
     const supabase = await createClient();
     const { data, error } = await supabase
       .from("hotel_price_history")
-      .select("hotel_id, price, currency, checked_at, provider")
+      .select("hotel_id, price, currency, checked_at, provider, booking_url")
       .in("hotel_id", hotelIds)
       .eq("check_in", checkIn)
       .eq("check_out", checkOut)
@@ -299,7 +306,9 @@ export class SupabasePriceHistoryRepository implements PriceHistoryRepository {
         nightlyPrice: Number(row.price),
         currency: row.currency as Currency,
         checkedAt: String(row.checked_at).slice(0, 10),
+        checkedAtRaw: String(row.checked_at),
         provider: row.provider as PriceProvider,
+        bookingUrl: row.booking_url,
       });
     }
     return latestByHotel;

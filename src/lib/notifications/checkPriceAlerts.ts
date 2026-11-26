@@ -44,6 +44,7 @@ function toCheckItem(userId: string, settings: PriceTrackingSettings): TrackedHo
     notifyOnAnyDrop: settings.notifyOnAnyDrop,
     notifyOnNewLow: settings.notifyOnNewLow,
     status: settings.status,
+    baselinePrice: settings.baselinePrice,
   };
 }
 
@@ -229,7 +230,9 @@ export async function checkPriceAlerts(): Promise<PriceCheckSummary> {
       price: price.nightlyPrice,
       currency: price.currency,
       provider: price.provider,
-      bookingUrl: price.deepLink,
+      // The real Agoda redirect this check just captured, when there was
+      // one — see LatestPrice.bookingUrl / SerpApiHotelProvider.buildResult.
+      bookingUrl: price.detailBookingLink ?? price.deepLink,
     });
 
     for (const item of group) {
@@ -247,7 +250,7 @@ export async function checkPriceAlerts(): Promise<PriceCheckSummary> {
           // where tracking started), so replace it with a fresh default
           // below the confirmed price and say so in the message.
           targetPrice = defaultTargetPrice(price.totalPrice);
-          await activatePendingTrackedHotel(item.trackedHotelId, targetPrice);
+          await activatePendingTrackedHotel(item.trackedHotelId, targetPrice, price.totalPrice);
           await notificationService.notify({
             userId: item.userId,
             trackedHotelId: item.trackedHotelId,
@@ -263,7 +266,7 @@ export async function checkPriceAlerts(): Promise<PriceCheckSummary> {
           notificationsSent++;
         } else {
           targetPrice = item.targetPrice ?? defaultTargetPrice(price.totalPrice);
-          await activatePendingTrackedHotel(item.trackedHotelId, targetPrice);
+          await activatePendingTrackedHotel(item.trackedHotelId, targetPrice, price.totalPrice);
         }
         continue;
       }
@@ -283,6 +286,7 @@ export async function checkPriceAlerts(): Promise<PriceCheckSummary> {
         targetPrice: item.targetPrice,
         notifyOnAnyDrop: item.notifyOnAnyDrop,
         notifyOnNewLow: item.notifyOnNewLow,
+        baselinePrice: item.baselinePrice,
       });
 
       for (const event of events) {

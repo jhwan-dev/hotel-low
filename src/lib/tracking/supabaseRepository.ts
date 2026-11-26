@@ -37,11 +37,12 @@ interface TrackedHotelRow {
   notify_on_any_drop: boolean;
   notify_on_new_low: boolean;
   status: string;
+  baseline_price: number | string | null;
   created_at: string;
 }
 
 const TRACKED_HOTEL_COLUMNS =
-  "check_in, check_out, adults, children, rooms, currency, target_price, notify_on_any_drop, notify_on_new_low, status, created_at";
+  "check_in, check_out, adults, children, rooms, currency, target_price, notify_on_any_drop, notify_on_new_low, status, baseline_price, created_at";
 
 function toSettings(row: TrackedHotelRow, hotelId: string): PriceTrackingSettings {
   return {
@@ -56,6 +57,7 @@ function toSettings(row: TrackedHotelRow, hotelId: string): PriceTrackingSetting
     notifyOnAnyDrop: row.notify_on_any_drop,
     notifyOnNewLow: row.notify_on_new_low,
     status: row.status as "pending" | "active",
+    baselinePrice: row.baseline_price === null ? null : Number(row.baseline_price),
     trackingStartedAt: row.created_at,
   };
 }
@@ -441,7 +443,10 @@ export class SupabaseTrackedHotelsRepository implements TrackedHotelsRepository 
         price: livePrice.nightlyPrice,
         currency: livePrice.currency,
         provider: livePrice.provider,
-        bookingUrl: livePrice.deepLink,
+        // The real Agoda redirect this fetch just captured, when there was
+        // one — closer to the actual bookable price than the reconstructed
+        // deepLink. See LatestPrice.bookingUrl / SerpApiHotelProvider.buildResult.
+        bookingUrl: livePrice.detailBookingLink ?? livePrice.deepLink,
       });
     }
 
@@ -470,6 +475,11 @@ export class SupabaseTrackedHotelsRepository implements TrackedHotelsRepository 
       notify_on_new_low: input.notifyOnNewLow,
       is_active: true,
       status: "active",
+      // This is always either a brand-new tracking or a party-size change
+      // (both re-registrations, not a settings edit — see upsert()'s
+      // branching above) — either way, this confirmed price is the new
+      // baseline everything future compares against.
+      baseline_price: livePrice.totalPrice,
     };
 
     // existingRowId set above means this is the party-size-changed case —

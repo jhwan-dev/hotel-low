@@ -34,8 +34,17 @@ export interface RoomPrice {
   totalPrice: number;
   /** Populated once a real booking provider (Agoda/Booking.com) is connected. */
   deepLink?: string;
-  /** "detail" = deepLink goes straight to Agoda's own page for this hotel; "search" = it only lands on Agoda's search results for the city (see buildBookingUrl in src/lib/hotels/serpapi/mapper.ts). Drives which button label the UI shows. */
-  deepLinkKind?: "detail" | "search";
+  /**
+   * "detail" = deepLink goes straight to Agoda's own page for this hotel;
+   * "search" = it only lands on Agoda's search results for the city (see
+   * buildBookingUrl in src/lib/hotels/serpapi/mapper.ts); "live" = deepLink
+   * is a Google-ads redirect captured the same day as checkedAt, straight
+   * to this exact query's price (see SerpApiHotelProvider.buildResult) —
+   * closer to the actual bookable price than a reconstructed detail link,
+   * but only trustworthy same-day since the redirect itself can expire.
+   * Drives which button label/caption the UI shows.
+   */
+  deepLinkKind?: "detail" | "search" | "live";
   /** Rooms left at this rate — undefined when the provider didn't return it. */
   remainingRooms?: number;
   /** When this price was actually observed. Set on a stored/last-known price (search/getHotelById under the SerpApi provider never call a live API — see HotelProvider.fetchLivePrice); omitted for an always-fresh mock/live quote. */
@@ -52,6 +61,8 @@ export interface RoomPrice {
   detailAddress?: string | null;
   detailAgodaHid?: string | null;
   detailName?: string | null;
+  /** The Google-ads redirect straight to Agoda's own live price page for this exact query (see MergedPriceEntry.link) — NOT the same as deepLink above (which SerpApiHotelProvider builds via buildBookingUrl). Callers decide whether/how to persist it (hotel_price_history.booking_url); expires, so only trustworthy the same day it was fetched. */
+  detailBookingLink?: string | null;
 }
 
 export interface PricePoint {

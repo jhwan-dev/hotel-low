@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { ArrowDownIcon, ArrowUpIcon, ChevronLeftIcon, ClockIcon, StarIcon } from "@/components/icons";
 import { Container } from "@/components/layout";
-import { Badge, LinkButton } from "@/components/ui";
+import { Badge, LinkButton, PriceChangeBadge } from "@/components/ui";
 import { PriceHistoryChart, PriceTrackingCta, StayConditionsBar } from "@/components/hotel";
 import { getCurrentUser } from "@/lib/auth/getCurrentUser";
 import { hotelCatalog, hotelProvider } from "@/lib/hotels";
@@ -107,6 +107,18 @@ export default async function HotelDetailPage(props: PageProps<"/hotels/[id]">) 
     price && totalPoints.length >= 2
       ? computePriceStatus(price.totalPrice, previousTotal, last30Total, price.currency)
       : null;
+  // "추적 시작가 대비 N% 하락" — the headline figure this screen leads with
+  // (see detectPriceEvents' matching baselineDropSuffix for notifications),
+  // ahead of any absolute-won comparison. Only shown once there's an actual
+  // drop to report; initialTracking.baselinePrice is null for a tracking
+  // that's still pending or predates this column (pre-migration backfill
+  // found nothing for it).
+  const baselinePercent =
+    price && initialTracking?.baselinePrice && price.totalPrice < initialTracking.baselinePrice
+      ? Math.round(
+          ((initialTracking.baselinePrice - price.totalPrice) / initialTracking.baselinePrice) * 100,
+        )
+      : null;
 
   return (
     <Container className="flex flex-col gap-5 py-4">
@@ -197,6 +209,13 @@ export default async function HotelDetailPage(props: PageProps<"/hotels/[id]">) 
               </p>
             </div>
 
+            {baselinePercent !== null && (
+              <div className="flex items-center gap-1.5 text-small font-semibold text-price-down">
+                <PriceChangeBadge trend="down" percent={baselinePercent} />
+                추적 시작가 대비 하락했어요
+              </div>
+            )}
+
             {status && (
               <div
                 className={cn(
@@ -276,9 +295,11 @@ export default async function HotelDetailPage(props: PageProps<"/hotels/[id]">) 
             <p className="text-center text-caption text-ink-muted">
               {price.deepLinkKind === "search"
                 ? "아고다 검색 결과로 이동해요 · 목록에서 이 호텔을 다시 찾아주세요."
-                : price.deepLinkKind === "detail"
-                  ? "아고다 쿠폰 등으로 실제 결제가가 더 낮을 수 있어요."
-                  : "Agoda에서 예약 · 실제 연동 전 mock 링크입니다."}
+                : price.deepLinkKind === "live"
+                  ? "방금 확인한 가격 그대로 아고다로 이동해요 · 실제 가격은 아고다에서 확인해주세요."
+                  : price.deepLinkKind === "detail"
+                    ? "아고다 쿠폰 등으로 실제 결제가가 더 낮을 수 있어요."
+                    : "Agoda에서 예약 · 실제 연동 전 mock 링크입니다."}
             </p>
           </>
         )}

@@ -23,6 +23,8 @@ export interface TrackedHotelForCheck {
   notifyOnNewLow: boolean;
   /** "pending" = no price confirmed yet (SerpApi's daily budget was exhausted at creation) — checkPriceAlerts.ts gives this group priority and skips price-change detection on its first-ever price. */
   status: "pending" | "active";
+  /** The total stay price the moment this tracking was confirmed active — null while pending, or for a pre-migration row whose backfill found nothing. Lets detectPriceEvents report "추적 시작가 대비 N% 하락" without re-deriving it from history. */
+  baselinePrice: number | null;
 }
 
 /**
@@ -58,7 +60,7 @@ export async function listAllActiveTrackedHotels(): Promise<TrackedHotelForCheck
   const { data, error } = await admin
     .from("tracked_hotels")
     .select(
-      "id, user_id, hotel_id, check_in, check_out, adults, children, rooms, target_price, currency, notify_on_any_drop, notify_on_new_low, status",
+      "id, user_id, hotel_id, check_in, check_out, adults, children, rooms, target_price, currency, notify_on_any_drop, notify_on_new_low, status, baseline_price",
     )
     .eq("is_active", true);
   if (error) throw error;
@@ -85,6 +87,7 @@ export async function listAllActiveTrackedHotels(): Promise<TrackedHotelForCheck
       notifyOnAnyDrop: row.notify_on_any_drop,
       notifyOnNewLow: row.notify_on_new_low,
       status: row.status as "pending" | "active",
+      baselinePrice: row.baseline_price === null ? null : Number(row.baseline_price),
     });
   }
   return results;
@@ -93,18 +96,21 @@ export async function listAllActiveTrackedHotels(): Promise<TrackedHotelForCheck
 /**
  * Transitions one pending tracked_hotels row to active once its first
  * price has landed — sets target_price (either the user's own, confirmed
- * valid against the first price, or a freshly computed default) and flips
- * status. Called once per pending TrackedHotelForCheck, never per group
- * (a group can mix pending rows from different users on the same stay).
+ * valid against the first price, or a freshly computed default), stamps
+ * baseline_price with that same first price (the moment tracking actually
+ * started, for "추적 시작가 대비 N% 하락" later), and flips status. Called
+ * once per pending TrackedHotelForCheck, never per group (a group can mix
+ * pending rows from different users on the same stay).
  */
 export async function activatePendingTrackedHotel(
   trackedHotelId: string,
   targetPrice: number,
+  baselinePrice: number,
 ): Promise<void> {
   const admin = createAdminClient();
   const { error } = await admin
     .from("tracked_hotels")
-    .update({ target_price: targetPrice, status: "active" })
+    .update({ target_price: targetPrice, baseline_price: baselinePrice, status: "active" })
     .eq("id", trackedHotelId);
   if (error) throw error;
 }

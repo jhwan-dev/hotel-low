@@ -28,6 +28,15 @@ export interface PriceTrackingSettings {
    */
   status: "pending" | "active";
   /**
+   * The total stay price (nightly × nights × rooms) the moment this
+   * tracking was confirmed active — set once, never touched again by a
+   * settings edit. Null while pending, or for a pre-migration row whose
+   * backfill found no matching hotel_price_history point. Lets every
+   * "추적 시작가 대비 N% 하락" figure read this directly instead of
+   * re-deriving it from history on every use.
+   */
+  baselinePrice: number | null;
+  /**
    * When this active tracking stint began (ISO timestamp) — preserved
    * across settings edits (notify toggles, target price), reset only when
    * the user actually stops and restarts tracking for this (hotel, stay).

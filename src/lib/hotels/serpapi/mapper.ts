@@ -5,12 +5,15 @@ import type { SerpApiPriceEntry, SerpApiPropertyDetails } from "./types";
 interface MergedPriceEntry {
   source: string;
   nightlyWithTax: number | null;
+  /** Google-ads redirect straight to this OTA's own live price page for this exact query — not a static detail page, so it tends to land closer to the actual bookable price than buildBookingUrl's reconstructed link (see RoomPrice.detailBookingLink). */
+  link: string | null;
 }
 
 function toMergedEntry(item: SerpApiPriceEntry): MergedPriceEntry {
   return {
     source: item.source,
     nightlyWithTax: item.rate_per_night?.extracted_lowest ?? null,
+    link: item.link ?? null,
   };
 }
 
@@ -187,5 +190,6 @@ export function mapDetailToRoomPrice(
     nights,
     nightlyPrice: agoda.nightlyWithTax,
     totalPrice: agoda.nightlyWithTax * nights * rooms,
+    detailBookingLink: agoda.link,
   };
 }
