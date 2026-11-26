@@ -18,7 +18,8 @@ import { PriceTrackingSheet } from "./PriceTrackingSheet";
 
 export interface TrackedHotelCardProps {
   hotel: Hotel;
-  price: RoomPrice;
+  /** Null exactly when settings.status === "pending" — no price confirmed yet. */
+  price: RoomPrice | null;
   settings: PriceTrackingSettings;
   previousTotalPrice: number | null;
   changePercent: number | null;
@@ -89,6 +90,44 @@ export function TrackedHotelCard({
   }
 
   if (stopped) return null;
+
+  // Pending: SerpApi's daily budget was exhausted when this tracking was
+  // created, so there's no price yet — show a minimal card instead of the
+  // full price/status layout below, which has nothing to render without one.
+  if (!price) {
+    return (
+      <Card className="flex overflow-hidden">
+        <Link
+          href={detailHref}
+          className="relative w-28 shrink-0 overflow-hidden rounded-l-card sm:w-36"
+        >
+          <Image
+            src={shrinkHotelImage(hotel.images[0], 300)}
+            alt={hotel.name}
+            fill
+            unoptimized
+            sizes="144px"
+            className="object-cover"
+          />
+          <CardRibbon label="대기 중" tone="tracking" />
+        </Link>
+        <CardBody className="flex-1 gap-1.5 p-3">
+          <Link href={detailHref}>
+            <h3 className="truncate text-small font-semibold text-ink">{hotel.name}</h3>
+          </Link>
+          <p className="text-caption text-ink-muted">
+            {formatShortDate(currentSettings.checkIn)} - {formatShortDate(currentSettings.checkOut)}
+          </p>
+          <p className="text-small text-ink-muted">내일 오전 중 첫 가격을 확인해요.</p>
+          <div className="mt-auto flex justify-end pt-1">
+            <Button variant="ghost" size="xs" disabled={isPending} onClick={stop}>
+              추적 중지
+            </Button>
+          </div>
+        </CardBody>
+      </Card>
+    );
+  }
 
   return (
     <Card
@@ -177,7 +216,7 @@ export function TrackedHotelCard({
         nights={price.nights}
         currentPrice={price.totalPrice}
         currency={price.currency}
-        initial={currentSettings}
+        initial={{ ...currentSettings, targetPrice: currentSettings.targetPrice ?? undefined }}
         onSubmit={submitSettings}
         submitLabel="설정 저장"
         error={error}

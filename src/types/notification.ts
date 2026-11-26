@@ -1,7 +1,18 @@
 import type { Currency } from "./hotel";
 
-/** Mirrors price_alerts.alert_type — every reason a notification can fire. */
-export type NotificationType = "price_drop" | "target_reached" | "new_low";
+/**
+ * Mirrors price_alerts.alert_type — every reason a notification can fire.
+ * tracking_unavailable/target_price_adjusted are one-time notices fired
+ * while a pending tracking resolves its first price (see checkPriceAlerts.ts)
+ * — not price-change events, so they're exempt from detectPriceEvents'
+ * dedup-by-day logic.
+ */
+export type NotificationType =
+  | "price_drop"
+  | "target_reached"
+  | "new_low"
+  | "tracking_unavailable"
+  | "target_price_adjusted";
 
 /** Mirrors price_alerts.is_read, spelled out for the app layer. */
 export type NotificationStatus = "unread" | "read";

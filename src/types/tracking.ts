@@ -9,12 +9,24 @@ export interface PriceTrackingSettings {
   children: number;
   rooms: number;
   currency: Currency;
-  /** Alert once the tracked price falls to or below this amount (total stay price). */
-  targetPrice: number;
+  /**
+   * Alert once the tracked price falls to or below this amount (total stay
+   * price). Null only while `status === "pending"` and the user didn't set
+   * one at creation — the price-check cron fills it in (defaultTargetPrice)
+   * the moment the first price lands. See SupabaseTrackedHotelsRepository.
+   */
+  targetPrice: number | null;
   /** Alert on any price drop, however small. */
   notifyOnAnyDrop: boolean;
   /** Alert whenever the price sets a new recorded low. */
   notifyOnNewLow: boolean;
+  /**
+   * "pending" = SerpApi's daily call budget was exhausted at creation time,
+   * so there's no price yet — the cron fills one in on its next run. Every
+   * tracking created outside that budget crunch (the normal case) is
+   * "active" immediately.
+   */
+  status: "pending" | "active";
   /**
    * When this active tracking stint began (ISO timestamp) — preserved
    * across settings edits (notify toggles, target price), reset only when

@@ -16,10 +16,13 @@ export interface TrackedHotelForCheck {
   adults: number;
   children: number;
   rooms: number;
-  targetPrice: number;
+  /** Null exactly when status is "pending" and the user didn't set one at creation — checkPriceAlerts.ts fills it in once the first price lands. */
+  targetPrice: number | null;
   currency: Currency;
   notifyOnAnyDrop: boolean;
   notifyOnNewLow: boolean;
+  /** "pending" = no price confirmed yet (SerpApi's daily budget was exhausted at creation) — checkPriceAlerts.ts gives this group priority and skips price-change detection on its first-ever price. */
+  status: "pending" | "active";
 }
 
 /**
@@ -55,7 +58,7 @@ export async function listAllActiveTrackedHotels(): Promise<TrackedHotelForCheck
   const { data, error } = await admin
     .from("tracked_hotels")
     .select(
-      "id, user_id, hotel_id, check_in, check_out, adults, children, rooms, target_price, currency, notify_on_any_drop, notify_on_new_low",
+      "id, user_id, hotel_id, check_in, check_out, adults, children, rooms, target_price, currency, notify_on_any_drop, notify_on_new_low, status",
     )
     .eq("is_active", true);
   if (error) throw error;
@@ -77,11 +80,47 @@ export async function listAllActiveTrackedHotels(): Promise<TrackedHotelForCheck
       adults: row.adults,
       children: row.children,
       rooms: row.rooms,
-      targetPrice: Number(row.target_price),
+      targetPrice: row.target_price === null ? null : Number(row.target_price),
       currency: row.currency as Currency,
       notifyOnAnyDrop: row.notify_on_any_drop,
       notifyOnNewLow: row.notify_on_new_low,
+      status: row.status as "pending" | "active",
     });
   }
   return results;
+}
+
+/**
+ * Transitions one pending tracked_hotels row to active once its first
+ * price has landed — sets target_price (either the user's own, confirmed
+ * valid against the first price, or a freshly computed default) and flips
+ * status. Called once per pending TrackedHotelForCheck, never per group
+ * (a group can mix pending rows from different users on the same stay).
+ */
+export async function activatePendingTrackedHotel(
+  trackedHotelId: string,
+  targetPrice: number,
+): Promise<void> {
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("tracked_hotels")
+    .update({ target_price: targetPrice, status: "active" })
+    .eq("id", trackedHotelId);
+  if (error) throw error;
+}
+
+/**
+ * A pending tracking whose first-ever check came back with no Agoda price
+ * at all — there's nothing left to wait for, so it's turned off outright
+ * (same is_active flag stopTracking()/deactivate() use) rather than left
+ * pending forever. checkPriceAlerts.ts pairs this with a one-time
+ * tracking_unavailable notification.
+ */
+export async function deactivatePendingTrackedHotel(trackedHotelId: string): Promise<void> {
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("tracked_hotels")
+    .update({ is_active: false })
+    .eq("id", trackedHotelId);
+  if (error) throw error;
 }

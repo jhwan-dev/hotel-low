@@ -193,25 +193,31 @@ export function PriceTrackingCta({
               </span>
             </p>
           )}
-          <p className="text-body text-ink">
-            <span className="font-semibold tabular-nums">
-              {formatPrice(settings.targetPrice, currency)}
-            </span>{" "}
-            이하가 되면 알려드릴게요.
-          </p>
+          {settings.status === "pending" || settings.targetPrice === null ? (
+            <p className="text-body text-ink">내일 오전 중 첫 가격을 확인해요.</p>
+          ) : (
+            <p className="text-body text-ink">
+              <span className="font-semibold tabular-nums">
+                {formatPrice(settings.targetPrice, currency)}
+              </span>{" "}
+              이하가 되면 알려드릴게요.
+            </p>
+          )}
           <div className="flex flex-wrap gap-2">
             {settings.notifyOnAnyDrop && <Badge variant="primary">가격 하락 시 알림</Badge>}
             {settings.notifyOnNewLow && <Badge variant="primary">최저가 갱신 시 알림</Badge>}
           </div>
           <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={isPending}
-              onClick={() => setSheetOpen(true)}
-            >
-              알림 설정
-            </Button>
+            {settings.status === "active" && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isPending}
+                onClick={() => setSheetOpen(true)}
+              >
+                알림 설정
+              </Button>
+            )}
             <Button variant="ghost" size="sm" disabled={isPending} onClick={stop}>
               추적 중지
             </Button>
@@ -234,7 +240,7 @@ export function PriceTrackingCta({
         nights={nights}
         currentPrice={effectiveCurrentPrice}
         currency={currency}
-        initial={settings ?? undefined}
+        initial={settings ? { ...settings, targetPrice: settings.targetPrice ?? undefined } : undefined}
         onSubmit={submit}
         submitLabel={settings ? "설정 저장" : "가격 추적 시작"}
         priceUnknown={effectivePriceUnknown}

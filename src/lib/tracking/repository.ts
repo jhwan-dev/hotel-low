@@ -25,10 +25,15 @@ export type TrackingInput = Pick<
   targetPrice?: number;
 };
 
-/** upsert()'s result: the saved settings plus the live price that confirmed them — callers show this immediately instead of re-fetching. */
+/**
+ * upsert()'s result: the saved settings plus the live price that confirmed
+ * them — callers show this immediately instead of re-fetching. `price` is
+ * null exactly when `settings.status === "pending"` (SerpApi's daily budget
+ * was exhausted at creation time — no live check happened at all).
+ */
 export interface TrackingUpsertResult {
   settings: PriceTrackingSettings;
-  price: RoomPrice;
+  price: RoomPrice | null;
 }
 
 /**

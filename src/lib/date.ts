@@ -18,6 +18,24 @@ export function todayISOInSeoul(): string {
   return `${lookup.year}-${lookup.month}-${lookup.day}`;
 }
 
+/**
+ * UTC instant bounds `[startUTC, endUTC)` of one Asia/Seoul calendar day —
+ * for querying a `timestamptz` column (e.g. hotel_price_history.checked_at)
+ * by Korean calendar day. Plain `.slice(0, 10)` on a UTC timestamp is NOT
+ * the same thing: Korea has no DST, so the day boundary is a fixed +09:00
+ * offset, but a check made before 09:00 KST still falls on the *previous*
+ * UTC calendar day. Defaults to today in Seoul.
+ */
+export function seoulDayRangeUTC(dateISO: string = todayISOInSeoul()): {
+  startUTC: string;
+  endUTC: string;
+} {
+  return {
+    startUTC: new Date(`${dateISO}T00:00:00+09:00`).toISOString(),
+    endUTC: new Date(`${addDaysISO(dateISO, 1)}T00:00:00+09:00`).toISOString(),
+  };
+}
+
 export function addDaysISO(iso: string, days: number): string {
   const date = new Date(`${iso}T00:00:00Z`);
   date.setUTCDate(date.getUTCDate() + days);

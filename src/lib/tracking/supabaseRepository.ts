@@ -1,6 +1,6 @@
 import "server-only";
 
-import { todayISO } from "@/lib/date";
+import { nightsBetween, seoulDayRangeUTC, todayISO, todayISOInSeoul } from "@/lib/date";
 import type { HotelCatalog } from "@/lib/hotels/catalog";
 import { hotelProvider, priceHistoryRepository } from "@/lib/hotels";
 import { getSerpApiDailyLimit, isSerpApiConfigured } from "@/lib/hotels/serpapi/env";
@@ -16,7 +16,7 @@ import {
   resolveProvisionalName,
   updateAgodaPriceStatus,
 } from "@/lib/supabase/hotelsTable";
-import type { Currency } from "@/types/hotel";
+import type { Currency, PartySize, PriceProvider, RoomPrice } from "@/types/hotel";
 import type { PriceTrackingSettings } from "@/types/tracking";
 import { defaultTargetPrice } from "./targetPrice";
 import {
@@ -33,14 +33,15 @@ interface TrackedHotelRow {
   children: number;
   rooms: number;
   currency: string;
-  target_price: number | string;
+  target_price: number | string | null;
   notify_on_any_drop: boolean;
   notify_on_new_low: boolean;
+  status: string;
   created_at: string;
 }
 
 const TRACKED_HOTEL_COLUMNS =
-  "check_in, check_out, adults, children, rooms, currency, target_price, notify_on_any_drop, notify_on_new_low, created_at";
+  "check_in, check_out, adults, children, rooms, currency, target_price, notify_on_any_drop, notify_on_new_low, status, created_at";
 
 function toSettings(row: TrackedHotelRow, hotelId: string): PriceTrackingSettings {
   return {
@@ -51,9 +52,10 @@ function toSettings(row: TrackedHotelRow, hotelId: string): PriceTrackingSetting
     children: row.children,
     rooms: row.rooms,
     currency: row.currency as Currency,
-    targetPrice: Number(row.target_price),
+    targetPrice: row.target_price === null ? null : Number(row.target_price),
     notifyOnAnyDrop: row.notify_on_any_drop,
     notifyOnNewLow: row.notify_on_new_low,
+    status: row.status as "pending" | "active",
     trackingStartedAt: row.created_at,
   };
 }
@@ -80,6 +82,54 @@ export class SupabaseTrackedHotelsRepository implements TrackedHotelsRepository 
     if (!entry) return null;
     const supabase = await createClient();
     return findHotelRowId(supabase, "agoda", entry.providerHotelId);
+  }
+
+  /**
+   * A price for this exact (hotel, stay, party) already recorded today
+   * (Asia/Seoul calendar day) — e.g. the price-check cron already ran, or
+   * another user started tracking the same stay earlier today. Finding one
+   * means tracking-start can skip SerpApi entirely. Deliberately narrower
+   * than PriceHistoryRepository.getLatestPrice: that reads the single most
+   * recent row regardless of age, which could be from any day and would
+   * silently reuse a stale quote instead of making a fresh (or pending)
+   * check.
+   */
+  private async findTodaysCachedPrice(
+    hotelRowId: string,
+    checkIn: string,
+    checkOut: string,
+    partySize: PartySize,
+  ): Promise<{
+    nightlyPrice: number;
+    currency: Currency;
+    provider: PriceProvider;
+    bookingUrl: string | null;
+  } | null> {
+    const { startUTC, endUTC } = seoulDayRangeUTC();
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("hotel_price_history")
+      .select("price, currency, provider, booking_url")
+      .eq("hotel_id", hotelRowId)
+      .eq("check_in", checkIn)
+      .eq("check_out", checkOut)
+      .eq("adults", partySize.adults)
+      .eq("children", partySize.children)
+      .eq("rooms", partySize.rooms)
+      .gte("checked_at", startUTC)
+      .lt("checked_at", endUTC)
+      .order("checked_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+
+    return {
+      nightlyPrice: Number(data.price),
+      currency: data.currency as Currency,
+      provider: data.provider as PriceProvider,
+      bookingUrl: data.booking_url,
+    };
   }
 
   async findActive(
@@ -127,6 +177,67 @@ export class SupabaseTrackedHotelsRepository implements TrackedHotelsRepository 
     return results;
   }
 
+  /**
+   * SerpApi's daily call budget is exhausted — register the tracking
+   * anyway instead of rejecting it (TrackingRejectedError used to be thrown
+   * here). target_price is kept as-is if the user already set one, left
+   * NULL otherwise; the price-check cron fills in a price (and a default
+   * target, if still unset) on its next run — see checkPriceAlerts.ts.
+   */
+  private async insertPending(
+    userId: string,
+    hotelRowId: string,
+    input: TrackingInput,
+  ): Promise<TrackingUpsertResult> {
+    if (input.targetPrice !== undefined && input.targetPrice <= 0) {
+      throw new TrackingRejectedError("목표 가격은 0보다 커야 해요");
+    }
+
+    const supabase = await createClient();
+    const { data: existing, error: findError } = await supabase
+      .from("tracked_hotels")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("hotel_id", hotelRowId)
+      .eq("check_in", input.checkIn)
+      .eq("check_out", input.checkOut)
+      .eq("is_active", true)
+      .maybeSingle();
+    if (findError) throw findError;
+
+    const payload = {
+      user_id: userId,
+      hotel_id: hotelRowId,
+      check_in: input.checkIn,
+      check_out: input.checkOut,
+      adults: input.adults,
+      children: input.children,
+      rooms: input.rooms,
+      target_price: input.targetPrice ?? null,
+      currency: input.currency,
+      notify_on_any_drop: input.notifyOnAnyDrop,
+      notify_on_new_low: input.notifyOnNewLow,
+      is_active: true,
+      status: "pending",
+    };
+
+    const { data, error } = existing
+      ? await supabase
+          .from("tracked_hotels")
+          .update(payload)
+          .eq("id", existing.id)
+          .select(`id, ${TRACKED_HOTEL_COLUMNS}`)
+          .single()
+      : await supabase
+          .from("tracked_hotels")
+          .insert(payload)
+          .select(`id, ${TRACKED_HOTEL_COLUMNS}`)
+          .single();
+    if (error) throw error;
+
+    return { settings: toSettings(data, input.hotelId), price: null };
+  }
+
   async upsert(userId: string, input: TrackingInput): Promise<TrackingUpsertResult> {
     const entry = await this.catalog.findByAppHotelId(input.hotelId);
     if (!entry) throw new Error(`Unknown hotel: ${input.hotelId}`);
@@ -149,57 +260,84 @@ export class SupabaseTrackedHotelsRepository implements TrackedHotelsRepository 
       amenities: entry.amenities,
     });
 
-    // Only spend from the shared daily budget when SerpApi is actually the
-    // live price source — under the mock/Agoda fallback, fetchLivePrice()
-    // below costs nothing real, so there's nothing to rate-limit.
-    if (isSerpApiConfigured()) {
-      const allowed = await tryConsumeDailyCall(getSerpApiDailyLimit());
-      if (!allowed) throw new TrackingRejectedError("잠시 후 다시 시도해주세요");
+    const partySize: PartySize = { adults: input.adults, children: input.children, rooms: input.rooms };
+    const cached = await this.findTodaysCachedPrice(hotelRowId, input.checkIn, input.checkOut, partySize);
+
+    let livePrice: RoomPrice;
+    if (cached) {
+      // Already checked today for this exact (hotel, stay, party) — reuse
+      // it instead of spending another SerpApi call. backfillHotelDetails/
+      // resolveProvisionalName only make sense right after a fresh live
+      // detail fetch, so skip those too; recordPrice below is skipped the
+      // same way (duplicating today's own row would gain nothing).
+      const nights = nightsBetween(input.checkIn, input.checkOut);
+      livePrice = {
+        hotelId: input.hotelId,
+        provider: cached.provider,
+        currency: cached.currency,
+        checkIn: input.checkIn,
+        checkOut: input.checkOut,
+        nights,
+        nightlyPrice: cached.nightlyPrice,
+        totalPrice: cached.nightlyPrice * nights * input.rooms,
+        checkedAt: todayISOInSeoul(),
+        deepLink: cached.bookingUrl ?? undefined,
+      };
+    } else {
+      // Only spend from the shared daily budget when SerpApi is actually
+      // the live price source — under the mock/Agoda fallback,
+      // fetchLivePrice() below costs nothing real, so there's nothing to
+      // rate-limit.
+      if (isSerpApiConfigured()) {
+        const allowed = await tryConsumeDailyCall(getSerpApiDailyLimit());
+        if (!allowed) return this.insertPending(userId, hotelRowId, input);
+      }
+
+      const fetched = await hotelProvider.fetchLivePrice(input.hotelId, {
+        destination: "",
+        checkIn: input.checkIn,
+        checkOut: input.checkOut,
+        adults: input.adults,
+        children: input.children,
+        rooms: input.rooms,
+      });
+
+      await updateAgodaPriceStatus(
+        admin,
+        hotelRowId,
+        fetched ? "available" : "unavailable",
+        todayISO(),
+      );
+
+      if (!fetched) {
+        throw new TrackingRejectedError("이 숙소는 현재 아고다 가격을 확인할 수 없어요");
+      }
+      livePrice = fetched;
+
+      // Opportunistic, zero-extra-call catalog backfill from the detail
+      // response this fetchLivePrice call already made — never overwrites a
+      // value that's already there (including the ones filled in by hand).
+      await backfillHotelDetails(admin, hotelRowId, {
+        address: livePrice.detailAddress ?? null,
+        agodaHid: livePrice.detailAgodaHid ?? null,
+      });
+      // No-op unless this row was inserted by the Agoda-link-import flow
+      // with a provisional (hl=en) name — see resolveProvisionalName.
+      await resolveProvisionalName(admin, hotelRowId, livePrice.detailName ?? null);
+
+      await priceHistoryRepository.recordPrice({
+        hotelId: input.hotelId,
+        checkIn: input.checkIn,
+        checkOut: input.checkOut,
+        adults: input.adults,
+        children: input.children,
+        rooms: input.rooms,
+        price: livePrice.nightlyPrice,
+        currency: livePrice.currency,
+        provider: livePrice.provider,
+        bookingUrl: livePrice.deepLink,
+      });
     }
-
-    const livePrice = await hotelProvider.fetchLivePrice(input.hotelId, {
-      destination: "",
-      checkIn: input.checkIn,
-      checkOut: input.checkOut,
-      adults: input.adults,
-      children: input.children,
-      rooms: input.rooms,
-    });
-
-    await updateAgodaPriceStatus(
-      admin,
-      hotelRowId,
-      livePrice ? "available" : "unavailable",
-      todayISO(),
-    );
-
-    if (!livePrice) {
-      throw new TrackingRejectedError("이 숙소는 현재 아고다 가격을 확인할 수 없어요");
-    }
-
-    // Opportunistic, zero-extra-call catalog backfill from the detail
-    // response this fetchLivePrice call already made — never overwrites a
-    // value that's already there (including the ones filled in by hand).
-    await backfillHotelDetails(admin, hotelRowId, {
-      address: livePrice.detailAddress ?? null,
-      agodaHid: livePrice.detailAgodaHid ?? null,
-    });
-    // No-op unless this row was inserted by the Agoda-link-import flow
-    // with a provisional (hl=en) name — see resolveProvisionalName.
-    await resolveProvisionalName(admin, hotelRowId, livePrice.detailName ?? null);
-
-    await priceHistoryRepository.recordPrice({
-      hotelId: input.hotelId,
-      checkIn: input.checkIn,
-      checkOut: input.checkOut,
-      adults: input.adults,
-      children: input.children,
-      rooms: input.rooms,
-      price: livePrice.nightlyPrice,
-      currency: livePrice.currency,
-      provider: livePrice.provider,
-      bookingUrl: livePrice.deepLink,
-    });
 
     // input.targetPrice is omitted when the client didn't know the price
     // yet at submit time (PriceTrackingSheet's priceUnknown mode) — now
@@ -242,6 +380,7 @@ export class SupabaseTrackedHotelsRepository implements TrackedHotelsRepository 
       notify_on_any_drop: input.notifyOnAnyDrop,
       notify_on_new_low: input.notifyOnNewLow,
       is_active: true,
+      status: "active",
     };
 
     const { data, error } = existing

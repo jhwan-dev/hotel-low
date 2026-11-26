@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Image from "next/image";
 import { Container } from "@/components/layout";
 import { AgodaLinkImportForm, HomeSearchBar } from "@/components/search";
 import { PriceDropCard, LowAvailabilityCard, HotelDealCard } from "@/components/hotel";
-import { PriceChangeBadge } from "@/components/ui";
+import { Card, CardBody, CardMedia, CardRibbon, PriceChangeBadge } from "@/components/ui";
+import { shrinkHotelImage } from "@/lib/hotels/imageUrl";
 import { PopularDestinations } from "@/components/home/PopularDestinations";
 import { StayQueryProvider } from "@/components/search/StayQueryContext";
 import { getRecentPriceDrops } from "@/lib/hotels/recent-drops";
@@ -80,7 +82,32 @@ export default async function Home() {
         </div>
         {tracked.length > 0 ? (
           <div className="grid grid-cols-2 gap-3">
-            {tracked.map(({ settings, hotel, price, changePercent, previousTotalPrice }) => {
+            {tracked.map((item) => {
+              const { settings, hotel } = item;
+              if (!item.price) {
+                // Pending — no price confirmed yet, nothing for HotelDealCard
+                // to show. A minimal card still surfaces that it exists.
+                return (
+                  <Card key={`${settings.hotelId}-${settings.checkIn}-${settings.checkOut}`} className="overflow-hidden">
+                    <CardMedia className="aspect-square">
+                      <Image
+                        src={shrinkHotelImage(hotel.images[0], 400)}
+                        alt={hotel.name}
+                        fill
+                        unoptimized
+                        sizes="(min-width: 640px) 25vw, 50vw"
+                        className="object-cover"
+                      />
+                      <CardRibbon label="대기 중" tone="tracking" />
+                    </CardMedia>
+                    <CardBody className="gap-0.5 p-3">
+                      <h3 className="truncate text-small font-semibold text-ink">{hotel.name}</h3>
+                      <p className="text-caption text-ink-muted">내일 오전 중 첫 가격을 확인해요</p>
+                    </CardBody>
+                  </Card>
+                );
+              }
+              const { price, changePercent, previousTotalPrice } = item;
               const isDrop = changePercent !== null && changePercent < 0;
               const amountChanged =
                 previousTotalPrice !== null

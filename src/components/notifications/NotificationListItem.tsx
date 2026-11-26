@@ -15,6 +15,8 @@ const badgeVariant: Record<PriceNotification["type"], BadgeVariant> = {
   price_drop: "priceDown",
   new_low: "priceDown",
   target_reached: "primary",
+  tracking_unavailable: "neutral",
+  target_price_adjusted: "default",
 };
 
 export interface NotificationListItemProps {
@@ -53,16 +55,20 @@ export function NotificationListItem({ notification }: NotificationListItemProps
 
       <p className="text-small text-ink">{notification.message}</p>
 
-      <div className="flex items-baseline gap-2 pt-1">
-        <span className="text-price-sm font-bold tabular-nums text-ink">
-          {formatPrice(notification.currentPrice, notification.currency)}
-        </span>
-        {notification.previousPrice !== null && (
-          <span className="text-caption text-ink-muted line-through decoration-ink-muted/50">
-            {formatPrice(notification.previousPrice, notification.currency)}
+      {/* tracking_unavailable has no real price at all — currentPrice is a
+          0 sentinel for that type, not a legitimate price to show. */}
+      {notification.currentPrice > 0 && (
+        <div className="flex items-baseline gap-2 pt-1">
+          <span className="text-price-sm font-bold tabular-nums text-ink">
+            {formatPrice(notification.currentPrice, notification.currency)}
           </span>
-        )}
-      </div>
+          {notification.previousPrice !== null && (
+            <span className="text-caption text-ink-muted line-through decoration-ink-muted/50">
+              {formatPrice(notification.previousPrice, notification.currency)}
+            </span>
+          )}
+        </div>
+      )}
     </>
   );
 

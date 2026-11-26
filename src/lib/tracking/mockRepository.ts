@@ -59,7 +59,8 @@ export class MockTrackedHotelsRepository implements TrackedHotelsRepository {
     // Preserve the original trackingStartedAt across a settings edit
     // (update) — only a fresh tracking (no existing row) gets a new one.
     const trackingStartedAt = index >= 0 ? this.rows[index].trackingStartedAt : new Date().toISOString();
-    const row: PriceTrackingSettings = { ...input, targetPrice, trackingStartedAt };
+    // Mock mode has no SerpApi budget to exhaust, so it never goes pending.
+    const row: PriceTrackingSettings = { ...input, targetPrice, status: "active", trackingStartedAt };
     if (index >= 0) {
       this.rows[index] = row;
     } else {

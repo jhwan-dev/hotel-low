@@ -10,11 +10,14 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { backfillHotelDetails } from "@/lib/supabase/hotelsTable";
 import { trackedHotelsRepository } from "@/lib/tracking";
+import { defaultTargetPrice } from "@/lib/tracking/targetPrice";
 import type { PriceTrackingSettings } from "@/types/tracking";
 import { detectPriceEvents } from "./detectPriceEvents";
 import { notificationRepository, notificationService } from "./index";
 import {
+  activatePendingTrackedHotel,
   deactivateExpiredTrackedHotels,
+  deactivatePendingTrackedHotel,
   listAllActiveTrackedHotels,
   type TrackedHotelForCheck,
 } from "./priceCheckQueries";
@@ -39,6 +42,7 @@ function toCheckItem(userId: string, settings: PriceTrackingSettings): TrackedHo
     currency: settings.currency,
     notifyOnAnyDrop: settings.notifyOnAnyDrop,
     notifyOnNewLow: settings.notifyOnNewLow,
+    status: settings.status,
   };
 }
 
@@ -97,17 +101,35 @@ export async function checkPriceAlerts(): Promise<PriceCheckSummary> {
     else groups.set(key, [item]);
   }
 
+  // Pending groups (nobody's ever gotten a price for this exact stay yet)
+  // go first — both so they skip the far-out recheck throttle below
+  // unconditionally, and so a tight daily budget is spent resolving
+  // first-ever prices before it's spent on routine rechecks of stays that
+  // already have one.
+  const orderedGroups = [...groups.values()].sort(
+    (a, b) =>
+      Number(b.some((item) => item.status === "pending")) -
+      Number(a.some((item) => item.status === "pending")),
+  );
+
   const today = todayISO();
   let notificationsSent = 0;
   // Only SerpApi mode has anything to throttle/rate-limit — the mock/Agoda
   // fallback's fetchLivePrice() costs nothing real.
   const serpApiActive = isSerpApiConfigured();
 
-  for (const group of groups.values()) {
+  for (const group of orderedGroups) {
     const { hotelId, checkIn, checkOut, adults, children, rooms } = group[0];
     const partySize = { adults, children, rooms };
+    const hasPending = group.some((item) => item.status === "pending");
 
-    if (serpApiActive && daysBetween(today, checkIn) >= FAR_OUT_THRESHOLD_DAYS) {
+    const entry = await hotelCatalog.findByAppHotelId(hotelId);
+    const hotelName = entry?.name ?? "호텔";
+
+    // Pending items need their first price regardless of how far out the
+    // stay is — the far-out/recheck throttle only ever applies to a stay
+    // that already has at least one recorded price to throttle against.
+    if (!hasPending && serpApiActive && daysBetween(today, checkIn) >= FAR_OUT_THRESHOLD_DAYS) {
       const latest = await priceHistoryRepository.getLatestPrice(hotelId, checkIn, checkOut, partySize);
       if (latest && daysBetween(latest.checkedAt.slice(0, 10), today) < RECHECK_INTERVAL_DAYS) continue;
     }
@@ -116,7 +138,9 @@ export async function checkPriceAlerts(): Promise<PriceCheckSummary> {
       const allowed = await tryConsumeDailyCall(getSerpApiDailyLimit() - getSerpApiCronReserve());
       // Budget is shared across every remaining group this run too — once
       // it's gone, it's gone for the rest of this tick. Whatever's left
-      // over gets picked up on the next cron run.
+      // over gets picked up on the next cron run. Pending groups sort
+      // first (see orderedGroups above), so they get first claim on
+      // whatever budget is left.
       if (!allowed) break;
     }
 
@@ -135,7 +159,33 @@ export async function checkPriceAlerts(): Promise<PriceCheckSummary> {
       console.error(`checkPriceAlerts: live price fetch failed for ${hotelId} ${checkIn}->${checkOut}`, err);
       continue;
     }
-    if (!price) continue; // Agoda has no quote today — skip record+notify, keep the tracking as-is
+
+    if (!price) {
+      // A pending item's first-ever check came back empty — this hotel/stay
+      // genuinely has no Agoda quote, not just a transient gap. There's no
+      // "wait and retry" left for it (it's already been waiting since the
+      // budget ran out at creation), so give up and tell the user, instead
+      // of leaving it pending forever. An already-active item in the same
+      // group just keeps its normal "skip, retry next tick" behavior.
+      for (const item of group) {
+        if (item.status !== "pending") continue;
+        await deactivatePendingTrackedHotel(item.trackedHotelId);
+        await notificationService.notify({
+          userId: item.userId,
+          trackedHotelId: item.trackedHotelId,
+          hotelId: item.hotelId,
+          checkIn: item.checkIn,
+          checkOut: item.checkOut,
+          type: "tracking_unavailable",
+          previousPrice: null,
+          currentPrice: 0,
+          currency: item.currency,
+          message: `${hotelName}: 아고다에서 가격을 확인할 수 없어 추적을 중지했어요.`,
+        });
+        notificationsSent++;
+      }
+      continue;
+    }
 
     // Opportunistic, zero-extra-call catalog backfill from the detail
     // response the fetchLivePrice call above already made — never
@@ -181,10 +231,48 @@ export async function checkPriceAlerts(): Promise<PriceCheckSummary> {
       bookingUrl: price.deepLink,
     });
 
-    const entry = await hotelCatalog.findByAppHotelId(hotelId);
-    const hotelName = entry?.name ?? "호텔";
-
     for (const item of group) {
+      if (item.status === "pending") {
+        // This group's very first recorded price for this item — it's the
+        // baseline everything future gets compared against, not a change
+        // from anything, so no price_drop/target_reached/new_low here.
+        let targetPrice: number;
+        if (item.targetPrice !== null && price.totalPrice <= item.targetPrice) {
+          // The user's own target was already met by the very first price —
+          // keeping it would mean "target_reached" can never fire again
+          // (every future price is compared against a target already at or
+          // below where tracking started). Replace it with a fresh default
+          // below the confirmed price instead, and say so.
+          targetPrice = defaultTargetPrice(price.totalPrice);
+          await activatePendingTrackedHotel(item.trackedHotelId, targetPrice);
+          await notificationService.notify({
+            userId: item.userId,
+            trackedHotelId: item.trackedHotelId,
+            hotelId: item.hotelId,
+            checkIn: item.checkIn,
+            checkOut: item.checkOut,
+            type: "target_price_adjusted",
+            previousPrice: null,
+            currentPrice: price.totalPrice,
+            currency: price.currency,
+            message: `${hotelName}: 설정하신 목표가가 첫 확인 가격보다 높아서 자동으로 더 낮게 조정했어요.`,
+          });
+          notificationsSent++;
+        } else {
+          targetPrice = item.targetPrice ?? defaultTargetPrice(price.totalPrice);
+          await activatePendingTrackedHotel(item.trackedHotelId, targetPrice);
+        }
+        continue;
+      }
+
+      // Invariant: an "active" row always has a confirmed target_price (set
+      // at creation or by the pending branch above) — null here would mean
+      // that invariant broke, not a case to silently paper over.
+      if (item.targetPrice === null) {
+        console.error(`checkPriceAlerts: active tracking ${item.trackedHotelId} has no target_price`);
+        continue;
+      }
+
       const events = detectPriceEvents({
         currentTotal: price.totalPrice,
         previousTotal: previousPoint?.price ?? null,
