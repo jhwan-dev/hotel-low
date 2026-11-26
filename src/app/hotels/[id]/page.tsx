@@ -34,19 +34,27 @@ export async function generateMetadata(
   // Shared-link card (KakaoTalk, iMessage, Slack, …) — the hotel's own
   // photo + name/description, not the site-wide default OG image.
   const image = entry.images[0] ? shrinkHotelImage(entry.images[0], 1200) : undefined;
+  // Agoda's Content API doesn't guarantee a description for every hotel —
+  // fall back to a short factual line rather than an empty <meta> tag.
+  const description =
+    entry.description || `${entry.city} · 평점 ${formatRating(entry.rating)} · 가격 추적`;
 
   return {
     title: entry.name,
-    description: entry.description,
+    description,
+    // Query-less canonical — /hotels/[id]?checkIn=...&adults=... is the
+    // same hotel, not a distinct page; without this every shared stay
+    // query would be indexed as its own duplicate URL.
+    alternates: { canonical: `/hotels/${id}` },
     openGraph: {
       title: entry.name,
-      description: entry.description,
+      description,
       images: image ? [image] : undefined,
     },
     twitter: {
       card: "summary_large_image",
       title: entry.name,
-      description: entry.description,
+      description,
       images: image ? [image] : undefined,
     },
   };

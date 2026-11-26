@@ -5,7 +5,7 @@
 ## 기술 스택
 
 - **Next.js 16** (App Router) + React + TypeScript
-- **Supabase** — Postgres, Auth(카카오/이메일), Row Level Security
+- **Supabase** — Postgres, Auth(이메일 OTP), Row Level Security
 - **SerpApi** — 아고다 실시간 가격 조회 (Google Hotels 엔진)
 - **Capacitor** — Android 앱 쉘, 푸시 수신
 - **FCM (Firebase Cloud Messaging)** — 푸시 알림 발송
