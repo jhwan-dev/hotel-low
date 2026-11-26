@@ -239,13 +239,14 @@ export class SupabaseTrackedHotelsRepository implements TrackedHotelsRepository 
   }
 
   /**
-   * A settings edit (notify toggles / target price) on a tracking that
-   * already exists — never worth a fresh SerpApi call: the target is
-   * validated against whatever's already stored (hotel_price_history's
-   * latest row for this exact stay), not a new live check. Only reachable
-   * for an "active" existing row — a "pending" one is routed to
-   * insertPending instead, which already has the right update-in-place
-   * behavior for that case (no price to validate against yet).
+   * A settings edit (notify toggles / target price) on an "active" tracking
+   * whose party size hasn't changed — never worth a fresh SerpApi call: the
+   * target is validated against whatever's already stored
+   * (hotel_price_history's latest row for this exact stay), not a new live
+   * check. Never reaches here for a "pending" existing row (routed to
+   * insertPending instead) or a changed party size (routed through the
+   * normal cache/SerpApi/pending path below, since that party size's price
+   * may never have been checked) — see upsert()'s branching.
    */
   private async updateActiveSettings(
     trackedHotelId: string,
@@ -327,7 +328,7 @@ export class SupabaseTrackedHotelsRepository implements TrackedHotelsRepository 
     const supabase = await createClient();
     const { data: existingRow, error: existingError } = await supabase
       .from("tracked_hotels")
-      .select("id, status")
+      .select("id, status, adults, children, rooms")
       .eq("user_id", userId)
       .eq("hotel_id", hotelRowId)
       .eq("check_in", input.checkIn)
@@ -336,16 +337,34 @@ export class SupabaseTrackedHotelsRepository implements TrackedHotelsRepository 
       .maybeSingle();
     if (existingError) throw existingError;
 
-    if (existingRow) {
-      if (existingRow.status === "pending") {
-        // insertPending's own existing-row branch already updates a
-        // pending row in place with the right rule (keep the user's own
-        // target if set, otherwise leave it null) — reuse it rather than
-        // duplicating that rule here.
-        return this.insertPending(userId, hotelRowId, input);
-      }
+    // Only an unchanged party size is a pure settings edit — a different
+    // one needs an actual price check (that party size's price may never
+    // have been checked before), not just a notify/target update against
+    // the old party's stored price.
+    const samePartySize =
+      !!existingRow &&
+      existingRow.adults === input.adults &&
+      existingRow.children === input.children &&
+      existingRow.rooms === input.rooms;
+
+    if (existingRow?.status === "pending") {
+      // insertPending's own existing-row branch already writes the full
+      // payload (including adults/children/rooms) either way — a party-size
+      // change on a still-pending tracking is handled correctly with no
+      // extra logic here.
+      return this.insertPending(userId, hotelRowId, input);
+    }
+    if (existingRow && samePartySize) {
       return this.updateActiveSettings(existingRow.id, input);
     }
+
+    // Either a brand-new tracking, or an existing active one whose party
+    // size just changed — both need a real price check below. For the
+    // latter, existingRowId makes the eventual write an UPDATE of that
+    // same row instead of an INSERT (the partial unique index only allows
+    // one active row per (user, hotel, checkIn, checkOut) regardless of
+    // party size, so there is no second row to create).
+    const existingRowId = existingRow?.id ?? null;
 
     const partySize: PartySize = { adults: input.adults, children: input.children, rooms: input.rooms };
     const cached = await this.findTodaysCachedPrice(hotelRowId, input.checkIn, input.checkOut, partySize);
@@ -437,27 +456,37 @@ export class SupabaseTrackedHotelsRepository implements TrackedHotelsRepository 
       throw new TrackingRejectedError("목표 가격은 현재 가격보다 낮아야 해요");
     }
 
-    // A brand-new tracking — existingRow was already confirmed absent at
-    // the top of this method, so this is always an insert, never an update.
-    const { data, error } = await supabase
-      .from("tracked_hotels")
-      .insert({
-        user_id: userId,
-        hotel_id: hotelRowId,
-        check_in: input.checkIn,
-        check_out: input.checkOut,
-        adults: input.adults,
-        children: input.children,
-        rooms: input.rooms,
-        target_price: targetPrice,
-        currency: input.currency,
-        notify_on_any_drop: input.notifyOnAnyDrop,
-        notify_on_new_low: input.notifyOnNewLow,
-        is_active: true,
-        status: "active",
-      })
-      .select(`id, ${TRACKED_HOTEL_COLUMNS}`)
-      .single();
+    const payload = {
+      user_id: userId,
+      hotel_id: hotelRowId,
+      check_in: input.checkIn,
+      check_out: input.checkOut,
+      adults: input.adults,
+      children: input.children,
+      rooms: input.rooms,
+      target_price: targetPrice,
+      currency: input.currency,
+      notify_on_any_drop: input.notifyOnAnyDrop,
+      notify_on_new_low: input.notifyOnNewLow,
+      is_active: true,
+      status: "active",
+    };
+
+    // existingRowId set above means this is the party-size-changed case —
+    // update that same row (its (user, hotel, checkIn, checkOut) key
+    // already exists) rather than inserting a second one.
+    const { data, error } = existingRowId
+      ? await supabase
+          .from("tracked_hotels")
+          .update(payload)
+          .eq("id", existingRowId)
+          .select(`id, ${TRACKED_HOTEL_COLUMNS}`)
+          .single()
+      : await supabase
+          .from("tracked_hotels")
+          .insert(payload)
+          .select(`id, ${TRACKED_HOTEL_COLUMNS}`)
+          .single();
     if (error) throw error;
 
     return { settings: toSettings(data, input.hotelId), price: livePrice };
