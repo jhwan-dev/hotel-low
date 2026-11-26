@@ -4,6 +4,7 @@ import { MOCK_USER_ID } from "@/lib/auth/getCurrentUser";
 import { hotelCatalog, hotelProvider, priceHistoryRepository } from "@/lib/hotels";
 import { getSerpApiCronReserve, getSerpApiDailyLimit, isSerpApiConfigured } from "@/lib/hotels/serpapi/env";
 import { daysBetween, todayISO, todayISOInSeoul } from "@/lib/date";
+import { formatPrice } from "@/lib/format";
 import { toTotalPoints } from "@/lib/hotels/price-history";
 import { tryConsumeDailyCall } from "@/lib/serpapi/callBudget";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -239,10 +240,12 @@ export async function checkPriceAlerts(): Promise<PriceCheckSummary> {
         let targetPrice: number;
         if (item.targetPrice !== null && price.totalPrice <= item.targetPrice) {
           // The user's own target was already met by the very first price —
-          // keeping it would mean "target_reached" can never fire again
-          // (every future price is compared against a target already at or
-          // below where tracking started). Replace it with a fresh default
-          // below the confirmed price instead, and say so.
+          // this genuinely IS "목표가 도달", so send that (not a dedicated
+          // "we adjusted your setting" type). Keeping the old target as-is
+          // would also mean target_reached can never fire again (every
+          // future price is compared against a target already at or below
+          // where tracking started), so replace it with a fresh default
+          // below the confirmed price and say so in the message.
           targetPrice = defaultTargetPrice(price.totalPrice);
           await activatePendingTrackedHotel(item.trackedHotelId, targetPrice);
           await notificationService.notify({
@@ -251,11 +254,11 @@ export async function checkPriceAlerts(): Promise<PriceCheckSummary> {
             hotelId: item.hotelId,
             checkIn: item.checkIn,
             checkOut: item.checkOut,
-            type: "target_price_adjusted",
+            type: "target_reached",
             previousPrice: null,
             currentPrice: price.totalPrice,
             currency: price.currency,
-            message: `${hotelName}: 설정하신 목표가가 첫 확인 가격보다 높아서 자동으로 더 낮게 조정했어요.`,
+            message: `${hotelName}: 이미 목표가 이하예요(현재가 ${formatPrice(price.totalPrice, price.currency)}). 새 목표가를 ${formatPrice(targetPrice, price.currency)}로 잡았어요.`,
           });
           notificationsSent++;
         } else {

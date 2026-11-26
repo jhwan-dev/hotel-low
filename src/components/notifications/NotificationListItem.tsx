@@ -16,7 +16,6 @@ const badgeVariant: Record<PriceNotification["type"], BadgeVariant> = {
   new_low: "priceDown",
   target_reached: "primary",
   tracking_unavailable: "neutral",
-  target_price_adjusted: "default",
 };
 
 export interface NotificationListItemProps {

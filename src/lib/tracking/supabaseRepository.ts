@@ -238,6 +238,70 @@ export class SupabaseTrackedHotelsRepository implements TrackedHotelsRepository 
     return { settings: toSettings(data, input.hotelId), price: null };
   }
 
+  /**
+   * A settings edit (notify toggles / target price) on a tracking that
+   * already exists — never worth a fresh SerpApi call: the target is
+   * validated against whatever's already stored (hotel_price_history's
+   * latest row for this exact stay), not a new live check. Only reachable
+   * for an "active" existing row — a "pending" one is routed to
+   * insertPending instead, which already has the right update-in-place
+   * behavior for that case (no price to validate against yet).
+   */
+  private async updateActiveSettings(
+    trackedHotelId: string,
+    input: TrackingInput,
+  ): Promise<TrackingUpsertResult> {
+    const partySize: PartySize = { adults: input.adults, children: input.children, rooms: input.rooms };
+    const latest = await priceHistoryRepository.getLatestPrice(
+      input.hotelId,
+      input.checkIn,
+      input.checkOut,
+      partySize,
+    );
+    // Invariant: an "active" row always has at least one hotel_price_history
+    // row for its exact stay (see SupabasePriceHistoryRepository's own
+    // comment) — null here means that invariant broke, not a case to
+    // silently work around with a fresh SerpApi call mid-settings-edit.
+    if (!latest) {
+      throw new TrackingRejectedError("현재 가격을 확인할 수 없어요. 잠시 후 다시 시도해주세요.");
+    }
+
+    const nights = nightsBetween(input.checkIn, input.checkOut);
+    const totalPrice = latest.nightlyPrice * nights * input.rooms;
+
+    const targetPrice = input.targetPrice ?? defaultTargetPrice(totalPrice);
+    if (targetPrice <= 0 || targetPrice >= totalPrice) {
+      throw new TrackingRejectedError("목표 가격은 현재 가격보다 낮아야 해요");
+    }
+
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("tracked_hotels")
+      .update({
+        target_price: targetPrice,
+        notify_on_any_drop: input.notifyOnAnyDrop,
+        notify_on_new_low: input.notifyOnNewLow,
+      })
+      .eq("id", trackedHotelId)
+      .select(`id, ${TRACKED_HOTEL_COLUMNS}`)
+      .single();
+    if (error) throw error;
+
+    const livePrice: RoomPrice = {
+      hotelId: input.hotelId,
+      provider: latest.provider,
+      currency: latest.currency,
+      checkIn: input.checkIn,
+      checkOut: input.checkOut,
+      nights,
+      nightlyPrice: latest.nightlyPrice,
+      totalPrice,
+      checkedAt: latest.checkedAt,
+    };
+
+    return { settings: toSettings(data, input.hotelId), price: livePrice };
+  }
+
   async upsert(userId: string, input: TrackingInput): Promise<TrackingUpsertResult> {
     const entry = await this.catalog.findByAppHotelId(input.hotelId);
     if (!entry) throw new Error(`Unknown hotel: ${input.hotelId}`);
@@ -259,6 +323,29 @@ export class SupabaseTrackedHotelsRepository implements TrackedHotelsRepository 
       images: entry.images,
       amenities: entry.amenities,
     });
+
+    const supabase = await createClient();
+    const { data: existingRow, error: existingError } = await supabase
+      .from("tracked_hotels")
+      .select("id, status")
+      .eq("user_id", userId)
+      .eq("hotel_id", hotelRowId)
+      .eq("check_in", input.checkIn)
+      .eq("check_out", input.checkOut)
+      .eq("is_active", true)
+      .maybeSingle();
+    if (existingError) throw existingError;
+
+    if (existingRow) {
+      if (existingRow.status === "pending") {
+        // insertPending's own existing-row branch already updates a
+        // pending row in place with the right rule (keep the user's own
+        // target if set, otherwise leave it null) — reuse it rather than
+        // duplicating that rule here.
+        return this.insertPending(userId, hotelRowId, input);
+      }
+      return this.updateActiveSettings(existingRow.id, input);
+    }
 
     const partySize: PartySize = { adults: input.adults, children: input.children, rooms: input.rooms };
     const cached = await this.findTodaysCachedPrice(hotelRowId, input.checkIn, input.checkOut, partySize);
@@ -350,51 +437,27 @@ export class SupabaseTrackedHotelsRepository implements TrackedHotelsRepository 
       throw new TrackingRejectedError("목표 가격은 현재 가격보다 낮아야 해요");
     }
 
-    const supabase = await createClient();
-
-    // No ON CONFLICT here on purpose: the unique index on
-    // (user_id, hotel_id, check_in, check_out) is partial (`where is_active`),
-    // and PostgREST's upsert can't target a partial index. Find-then-branch
-    // works with that constraint instead of fighting it.
-    const { data: existing, error: findError } = await supabase
+    // A brand-new tracking — existingRow was already confirmed absent at
+    // the top of this method, so this is always an insert, never an update.
+    const { data, error } = await supabase
       .from("tracked_hotels")
-      .select("id")
-      .eq("user_id", userId)
-      .eq("hotel_id", hotelRowId)
-      .eq("check_in", input.checkIn)
-      .eq("check_out", input.checkOut)
-      .eq("is_active", true)
-      .maybeSingle();
-    if (findError) throw findError;
-
-    const payload = {
-      user_id: userId,
-      hotel_id: hotelRowId,
-      check_in: input.checkIn,
-      check_out: input.checkOut,
-      adults: input.adults,
-      children: input.children,
-      rooms: input.rooms,
-      target_price: targetPrice,
-      currency: input.currency,
-      notify_on_any_drop: input.notifyOnAnyDrop,
-      notify_on_new_low: input.notifyOnNewLow,
-      is_active: true,
-      status: "active",
-    };
-
-    const { data, error } = existing
-      ? await supabase
-          .from("tracked_hotels")
-          .update(payload)
-          .eq("id", existing.id)
-          .select(`id, ${TRACKED_HOTEL_COLUMNS}`)
-          .single()
-      : await supabase
-          .from("tracked_hotels")
-          .insert(payload)
-          .select(`id, ${TRACKED_HOTEL_COLUMNS}`)
-          .single();
+      .insert({
+        user_id: userId,
+        hotel_id: hotelRowId,
+        check_in: input.checkIn,
+        check_out: input.checkOut,
+        adults: input.adults,
+        children: input.children,
+        rooms: input.rooms,
+        target_price: targetPrice,
+        currency: input.currency,
+        notify_on_any_drop: input.notifyOnAnyDrop,
+        notify_on_new_low: input.notifyOnNewLow,
+        is_active: true,
+        status: "active",
+      })
+      .select(`id, ${TRACKED_HOTEL_COLUMNS}`)
+      .single();
     if (error) throw error;
 
     return { settings: toSettings(data, input.hotelId), price: livePrice };

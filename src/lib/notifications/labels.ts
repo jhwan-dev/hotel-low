@@ -5,5 +5,4 @@ export const notificationTypeLabel: Record<NotificationType, string> = {
   target_reached: "목표가 도달",
   new_low: "최근 최저가 갱신",
   tracking_unavailable: "추적 중지",
-  target_price_adjusted: "목표가 자동 조정",
 };

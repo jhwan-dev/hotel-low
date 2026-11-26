@@ -2,17 +2,18 @@ import type { Currency } from "./hotel";
 
 /**
  * Mirrors price_alerts.alert_type — every reason a notification can fire.
- * tracking_unavailable/target_price_adjusted are one-time notices fired
- * while a pending tracking resolves its first price (see checkPriceAlerts.ts)
- * — not price-change events, so they're exempt from detectPriceEvents'
- * dedup-by-day logic.
+ * tracking_unavailable is a one-time notice fired when a pending tracking's
+ * first-ever price check comes back with no quote at all (see
+ * checkPriceAlerts.ts) — not a price-change event, so it's exempt from
+ * detectPriceEvents' dedup-by-day logic. A pending tracking whose first
+ * price already satisfies the user's target fires an ordinary
+ * target_reached instead of a dedicated type — that's exactly what it is.
  */
 export type NotificationType =
   | "price_drop"
   | "target_reached"
   | "new_low"
-  | "tracking_unavailable"
-  | "target_price_adjusted";
+  | "tracking_unavailable";
 
 /** Mirrors price_alerts.is_read, spelled out for the app layer. */
 export type NotificationStatus = "unread" | "read";
